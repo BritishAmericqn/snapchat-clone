@@ -15,8 +15,9 @@ import { Colors } from '../config';
 import { AuthenticatedUserContext } from '../providers';
 import { searchUsers, checkFriendStatus, sendFriendRequest } from '../api';
 
-export const SearchUsersScreen = ({ navigation }) => {
+export const SearchUsersScreen = ({ navigation, route }) => {
   const { user } = useContext(AuthenticatedUserContext);
+  const { selectForChat } = route.params || {};
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -89,13 +90,26 @@ export const SearchUsersScreen = ({ navigation }) => {
     }
   };
 
+  const handleUserPress = (item) => {
+    if (selectForChat && friendStatuses[item.id]?.isFriend) {
+      // Navigate directly to chat if selecting for chat and they're friends
+      navigation.navigate('ChatRoom', {
+        chatId: null, // Will be created in ChatRoom
+        otherUser: item
+      });
+    } else {
+      // Otherwise navigate to profile
+      navigation.navigate('UserProfile', { userId: item.id });
+    }
+  };
+
   const renderUserItem = ({ item }) => {
     const status = friendStatuses[item.id] || {};
     const profilePhotoUrl = item.profilePhotoUrl || 'https://via.placeholder.com/100';
     
     return (
       <TouchableOpacity
-        onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+        onPress={() => handleUserPress(item)}
       >
         <List.Item
           title={item.displayName || item.username}
@@ -112,7 +126,18 @@ export const SearchUsersScreen = ({ navigation }) => {
           )}
           right={() => (
             <View style={styles.actionContainer}>
-              {status.isFriend ? (
+              {selectForChat && status.isFriend ? (
+                <Button 
+                  mode="contained" 
+                  compact
+                  onPress={() => handleUserPress(item)}
+                  style={styles.addButton}
+                  labelStyle={styles.addButtonLabel}
+                  icon="message"
+                >
+                  Message
+                </Button>
+              ) : status.isFriend ? (
                 <Button 
                   mode="outlined" 
                   compact

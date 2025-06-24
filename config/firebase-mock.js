@@ -240,6 +240,126 @@ const mockFirestoreData = {
       metadata: {},
     },
   },
+  chats: {
+    // Pre-populated test chats
+    'chat_test_sarah': {
+      chatId: 'chat_test_sarah',
+      participants: ['12345', 'user_sarah'], // test user and sarah
+      lastMessage: {
+        text: 'Hey! How are you doing? 👋',
+        createdAt: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago
+        senderUid: 'user_sarah'
+      },
+      lastActivity: new Date(Date.now() - 60 * 60 * 1000),
+      unreadCount: {
+        '12345': 1,
+        'user_sarah': 0
+      }
+    },
+    'chat_test_mike': {
+      chatId: 'chat_test_mike',
+      participants: ['12345', 'user_mike'],
+      lastMessage: {
+        text: 'Check out this disappearing photo!',
+        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+        senderUid: 'user_mike'
+      },
+      lastActivity: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      unreadCount: {
+        '12345': 0,
+        'user_mike': 0
+      }
+    },
+    'chat_test_emma': {
+      chatId: 'chat_test_emma',
+      participants: ['12345', 'user_emma'],
+      lastMessage: {
+        text: 'See you at the coffee shop! ☕',
+        createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+        senderUid: '12345'
+      },
+      lastActivity: new Date(Date.now() - 30 * 60 * 1000),
+      unreadCount: {
+        '12345': 0,
+        'user_emma': 0
+      }
+    },
+  },
+  messages: {
+    // Test messages for chat_test_sarah
+    'msg_sarah_1': {
+      messageId: 'msg_sarah_1',
+      chatId: 'chat_test_sarah',
+      senderUid: 'user_sarah',
+      text: 'Hey! How are you doing? 👋',
+      mediaUrl: null,
+      mediaType: null,
+      createdAt: new Date(Date.now() - 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 23 * 60 * 60 * 1000), // 23 hours from now
+      viewedBy: [],
+      deleteOnView: false,
+      status: 'delivered',
+      metadata: {}
+    },
+    // Test messages for chat_test_mike
+    'msg_mike_1': {
+      messageId: 'msg_mike_1',
+      chatId: 'chat_test_mike',
+      senderUid: 'user_mike',
+      text: 'Check out this disappearing photo!',
+      mediaUrl: 'https://picsum.photos/400/600?random=msg1',
+      mediaType: 'image',
+      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 10 * 60 * 60 * 1000), // 10 hours from now
+      viewedBy: ['12345'],
+      deleteOnView: true,
+      status: 'read',
+      metadata: {}
+    },
+    'msg_mike_2': {
+      messageId: 'msg_mike_2',
+      chatId: 'chat_test_mike',
+      senderUid: '12345',
+      text: 'That looks amazing! 🤩',
+      mediaUrl: null,
+      mediaType: null,
+      createdAt: new Date(Date.now() - 90 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 22 * 60 * 60 * 1000),
+      viewedBy: ['user_mike'],
+      deleteOnView: false,
+      status: 'read',
+      metadata: {}
+    },
+    // Test messages for chat_test_emma
+    'msg_emma_1': {
+      messageId: 'msg_emma_1',
+      chatId: 'chat_test_emma',
+      senderUid: 'user_emma',
+      text: 'Want to grab coffee later?',
+      mediaUrl: null,
+      mediaType: null,
+      createdAt: new Date(Date.now() - 45 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours from now
+      viewedBy: ['12345'],
+      deleteOnView: false,
+      status: 'read',
+      metadata: {}
+    },
+    'msg_emma_2': {
+      messageId: 'msg_emma_2',
+      chatId: 'chat_test_emma',
+      senderUid: '12345',
+      text: 'See you at the coffee shop! ☕',
+      mediaUrl: null,
+      mediaType: null,
+      createdAt: new Date(Date.now() - 30 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 23 * 60 * 60 * 1000),
+      viewedBy: ['user_emma'],
+      deleteOnView: false,
+      status: 'read',
+      metadata: {}
+    },
+  },
   // Add more collections as needed
 };
 

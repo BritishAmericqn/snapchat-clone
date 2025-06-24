@@ -32,4 +32,21 @@ export {
   deletePost,
   getUserPosts,
   cleanupExpiredPosts,
-} from './posts'; 
+} from './posts';
+
+// Messages API
+export {
+  getOrCreateChat,
+  getUserChats,
+  getChatMessages,
+  sendMessage,
+  viewMessage,
+  deleteMessage,
+  markChatAsRead,
+  cleanupExpiredMessages,
+  areUsersFriends,
+  queueMessage,
+  processMessageQueue,
+  getQueueStatus,
+  clearMessageQueue
+} from './messages'; 

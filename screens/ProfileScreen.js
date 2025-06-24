@@ -4,6 +4,7 @@ import { View, Button, FormErrorMessage } from "../components";
 import { Colors } from "../config";
 import { AuthenticatedUserContext } from "../providers";
 import { getUserProfile, updateUserProfile, getUsersByIds } from "../api";
+import { useFocusEffect } from "@react-navigation/native";
 
 export const ProfileScreen = ({ navigation }) => {
   const { user } = useContext(AuthenticatedUserContext);
@@ -18,9 +19,12 @@ export const ProfileScreen = ({ navigation }) => {
   // Mock profile image (in real app, would allow image picker)
   const profileImageUrl = 'https://via.placeholder.com/150';
   
-  useEffect(() => {
-    loadUserProfile();
-  }, [user]);
+  // Reload profile data when screen focuses
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserProfile();
+    }, [user])
+  );
 
   const loadUserProfile = async () => {
     try {
@@ -30,6 +34,13 @@ export const ProfileScreen = ({ navigation }) => {
         setDisplayName(profile.displayName || '');
         setBio(profile.bio || '');
         setFriendCount(profile.friendIds?.length || 0);
+        
+        // Debug logging
+        console.log('[ProfileScreen] Loaded profile:', {
+          uid: user.uid,
+          friendIds: profile.friendIds,
+          friendCount: profile.friendIds?.length || 0
+        });
       }
     } catch (err) {
       console.error('[ProfileScreen] Error loading profile:', err);
@@ -105,13 +116,13 @@ export const ProfileScreen = ({ navigation }) => {
 
         {/* Friend Stats */}
         <View style={styles.statsContainer}>
-          <TouchableOpacity 
-            style={styles.statItem}
-            onPress={() => navigation.navigate('FriendSuggestions')}
-          >
-            <Text style={styles.statNumber}>{friendCount}</Text>
-            <Text style={styles.statLabel}>Friends</Text>
-          </TouchableOpacity>
+                  <TouchableOpacity 
+          style={styles.statItem}
+          onPress={() => navigation.navigate('FriendsList')}
+        >
+          <Text style={styles.statNumber}>{friendCount}</Text>
+          <Text style={styles.statLabel}>Friends</Text>
+        </TouchableOpacity>
         </View>
         
         {/* User Info */}
@@ -185,6 +196,13 @@ export const ProfileScreen = ({ navigation }) => {
         {/* Quick Actions */}
         {!isEditing && (
           <View style={styles.quickActions}>
+            <TouchableOpacity 
+              style={styles.quickActionButton} 
+              onPress={() => navigation.navigate('FriendsList')}
+            >
+              <Text style={styles.quickActionText}>👫 My Friends</Text>
+            </TouchableOpacity>
+            
             <TouchableOpacity 
               style={styles.quickActionButton} 
               onPress={() => navigation.navigate('PrivacySettings')}

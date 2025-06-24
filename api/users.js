@@ -124,10 +124,24 @@ export const addFriend = async (userId, friendId) => {
     const userData = userDoc.data();
     const currentFriends = userData?.friendIds || [];
     
+    console.log('[API] addFriend - Before:', {
+      userId,
+      friendId,
+      currentFriends,
+      alreadyFriend: currentFriends.includes(friendId)
+    });
+    
     if (!currentFriends.includes(friendId)) {
+      const newFriends = [...currentFriends, friendId];
       await db.collection('users').doc(userId).update({
-        friendIds: [...currentFriends, friendId]
+        friendIds: newFriends
       });
+      console.log('[API] addFriend - After update:', {
+        userId,
+        newFriends
+      });
+    } else {
+      console.log('[API] addFriend - Already friends, skipping');
     }
     
     console.log('[API] Friend added:', friendId, 'to user:', userId);

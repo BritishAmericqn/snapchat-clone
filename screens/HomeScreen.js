@@ -50,12 +50,7 @@ export const HomeScreen = ({ navigation }) => {
 
   const handleMessagesPress = () => {
     console.log('Messages pressed');
-    // Phase 4 placeholder
-    Alert.alert(
-      'Direct Messages Coming Soon!',
-      'Direct messaging will be available in Phase 4. It will include:\n\n• One-on-one chats\n• Disappearing messages\n• Photo and video sharing\n• Read receipts',
-      [{ text: 'OK', style: 'default' }]
-    );
+    navigation.navigate('ChatList');
   };
 
   React.useLayoutEffect(() => {
@@ -154,6 +149,15 @@ export const HomeScreen = ({ navigation }) => {
               onPress={() => navigation.navigate('FriendSuggestions')}
             >
               Friend Suggestions
+            </Button>
+            
+            <Button 
+              mode="outlined" 
+              icon="account-multiple" 
+              style={styles.friendButton}
+              onPress={() => navigation.navigate('FriendsList')}
+            >
+              My Friends
             </Button>
           </Card.Content>
         </Card>

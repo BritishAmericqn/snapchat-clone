@@ -10,6 +10,10 @@ import { FriendSuggestionsScreen } from './FriendSuggestionsScreen';
 import { CameraScreen } from './CameraScreen';
 import { MediaPreviewScreen } from './MediaPreviewScreen';
 import { FeedScreen } from './FeedScreen';
+import { UserProfileScreen } from './UserProfileScreen';
+import { FriendsListScreen } from './FriendsListScreen';
+import { ChatListScreen } from './ChatListScreen';
+import { ChatRoomScreen } from './ChatRoomScreen';
 
 export { 
   LoginScreen, 
@@ -23,5 +27,9 @@ export {
   FriendSuggestionsScreen,
   CameraScreen,
   MediaPreviewScreen,
-  FeedScreen 
+  FeedScreen,
+  UserProfileScreen,
+  FriendsListScreen,
+  ChatListScreen,
+  ChatRoomScreen 
 };

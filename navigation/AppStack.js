@@ -11,7 +11,11 @@ import {
   FriendSuggestionsScreen,
   CameraScreen,
   MediaPreviewScreen,
-  FeedScreen
+  FeedScreen,
+  UserProfileScreen,
+  FriendsListScreen,
+  ChatListScreen,
+  ChatRoomScreen
 } from "../screens";
 
 const Stack = createStackNavigator();
@@ -65,6 +69,22 @@ export const AppStack = () => {
           headerTintColor: Colors.white,
         }}
       />
+      <Stack.Screen 
+        name="UserProfile" 
+        component={UserProfileScreen} 
+        options={{ 
+          title: 'Profile',
+        }}
+      />
+      <Stack.Screen 
+        name="FriendsList" 
+        component={FriendsListScreen} 
+        options={{ 
+          title: 'My Friends',
+        }}
+      />
+      <Stack.Screen name='ChatList' component={ChatListScreen} />
+      <Stack.Screen name='ChatRoom' component={ChatRoomScreen} />
     </Stack.Navigator>
   );
 };

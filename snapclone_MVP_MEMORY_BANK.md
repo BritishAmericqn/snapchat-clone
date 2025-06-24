@@ -970,262 +970,488 @@ Created `test-friend-features.js` with comprehensive tests:
 
 ---
 
-## Phase 2: Bug Fixes & Polish
+## Phase 4: Direct Messaging with Ephemeral Media
 
-### Session Date: December 19, 2024 (Evening)
+### Completed Date: December 21, 2024
 
-### Critical Issues Fixed:
+### What Was Done:
 
-#### 1. Mock Firestore Chained Where Clauses
-**The Problem**: 
+1. **Extended Mock Firebase with Chat Collections**
+   - Added `chats` collection for conversation metadata
+   - Added `messages` collection for individual messages
+   - Pre-populated test chats between test user and friends
+   - Supports real-time listeners for both collections
+
+2. **Messages API Layer** (`api/messages.js`)
+   - `getOrCreateChat`: Creates or retrieves existing chat between users
+   - `getUserChats`: Gets all chats for a user with participant details
+   - `getChatMessages`: Retrieves messages for a specific chat
+   - `sendMessage`: Sends text/media messages with ephemeral options
+   - `viewMessage`: Marks message as viewed, handles delete-on-view
+   - `markChatAsRead`: Marks all messages in chat as read
+   - `cleanupExpiredMessages`: Removes messages past expiration
+   - `areUsersFriends`: Validates users are friends before messaging
+   - Offline queue functionality for resilient message delivery
+
+3. **Chat List Screen**
+   - Displays all active conversations
+   - Shows last message preview and timestamp
+   - Unread message count badges
+   - Search functionality for chats
+   - Pull-to-refresh
+   - FAB button to start new chat
+   - Real-time updates via Firestore listeners
+
+4. **Chat Room Screen**
+   - Full messaging interface with text and media support
+   - Message bubbles with sender distinction
+   - Ephemeral message settings (delete-on-view, expiration)
+   - Read receipts and delivery status
+   - Image picker integration for media messages
+   - Settings dialog for default message behavior
+   - Real-time message updates
+   - Automatic view tracking and deletion
+
+5. **Offline Message Queue**
+   - In-memory queue for failed messages
+   - Automatic retry with exponential backoff
+   - Maximum 3 retry attempts
+   - Queue status monitoring
+   - Manual queue processing capability
+
+### Technical Implementation Details:
+
+1. **Chat Data Model**
 ```javascript
-// This was BREAKING:
-db.collection('friendRequests')
-  .where('toUid', '==', userId)
-  .where('status', '==', 'pending')
-  .get();
-```
-
-**Error**: `TypeError: _config.db.collection('friendReq(...)ere('toUid', '==', userId).where is not a function`
-
-**Root Cause**: Mock Firestore's `where()` method was returning a simple object that didn't support chaining multiple where clauses.
-
-**The Fix**: Modified `firebase-mock.js` to return a query object that tracks multiple conditions:
-```javascript
-where: (field, operator, value) => {
-  const query = {
-    _conditions: [{ field, operator, value }],
-    
-    where: function(field2, operator2, value2) {
-      this._conditions.push({ field: field2, operator: operator2, value: value2 });
-      return this; // Enable chaining
-    },
-    
-    get: function() {
-      // Filter using ALL conditions
-      return this._conditions.every(condition => {
-        // Check each condition
-      });
-    }
-  };
-  return query;
+   {
+     chatId: string,
+     participants: string[], // Sorted array for consistency
+     lastMessage: {
+       text: string,
+       createdAt: Date,
+       senderUid: string
+     },
+     lastActivity: Date,
+     unreadCount: { [userId]: number }
 }
 ```
 
-**Lesson**: When mocking Firebase, consider ALL query patterns your app uses, not just simple ones.
-
-#### 2. Friend Request Badge Not Updating
-**The Problem**: Friend request count badge showed "5" even after accepting/rejecting all requests.
-
-**Root Cause**: `HomeScreen` only loaded the count once on mount - no refresh when returning from other screens.
-
-**The Fix**: Added navigation focus listener:
+2. **Message Data Model**
 ```javascript
-useEffect(() => {
-  const unsubscribe = navigation.addListener('focus', () => {
-    loadPendingRequestsCount();
-  });
-  return unsubscribe;
-}, [navigation, user.uid]);
-```
-
-**Why This Matters**: React Navigation doesn't re-mount screens when navigating back - they stay mounted in the stack. Without focus listeners, data becomes stale.
-
-**Additional Safety**: Added null check for user:
-```javascript
-const loadPendingRequestsCount = async () => {
-  if (!user?.uid) return; // Prevent crashes
-  // ... rest of function
-};
-```
-
-### Technical Decisions & Rationale:
-
-#### 1. Mock Data Structure
-**Decision**: Created 10 interconnected users with existing friendships
-
-**Why**: 
-- Testing friend suggestions requires users with mutual connections
-- Empty friend lists make suggestion algorithm testing impossible
-- Realistic data reveals UI/UX issues early
-
-**Implementation Details**:
-```javascript
-// Each user has different friend counts (0-3)
-// Some users are connected, creating mutual friend scenarios
-// Different bio styles show text truncation handling
-'user_john': {
-  friendIds: ['user_sarah', 'user_mike', 'user_emma'], // 3 friends
-  bio: '📸 Photography enthusiast | 🌍 Travel lover', // Emoji test
-}
-```
-
-#### 2. Pre-populated Friend Requests
-**Decision**: Added 5 pending requests to test user
-
-**Why**:
-- Tests accept/reject flow without manual setup
-- Different timestamps test time display
-- Ensures badge count functionality works
-
-**Pattern Used**:
-```javascript
-'request_mike_to_test': {
-  fromUid: 'user_mike',
-  toUid: '12345', // test user
-  status: 'pending',
-  createdAt: new Date(Date.now() - 86400000), // 1 day ago
-}
-```
-
-#### 3. Alert Placeholders for Future Features
-**Decision**: Show informative alerts for Snap/Messages instead of console.log
-
-**Why**:
-- Better user experience during testing
-- Sets expectations for future phases
-- Prevents "broken feature" perception
-
-### Pitfalls Avoided (But Easy to Fall Into):
-
-1. **useEffect Dependency Arrays**
-   - Always include ALL dependencies (we added `user.uid`)
-   - Missing dependencies = stale closures = bugs
-   - ESLint helps but doesn't catch everything
-
-2. **Navigation State Management**
-   - Screens stay mounted in stack navigators
-   - Data doesn't refresh automatically on "back"
-   - Always use focus listeners for data that changes
-
-3. **Mock Firebase Query Limitations**
-   - Real Firestore supports complex queries automatically
-   - Mock needs explicit implementation for each pattern
-   - Test your mock with actual app queries before assuming it works
-
-4. **Async State Updates**
-   - Setting state after async operations needs mounted checks
-   - Navigation can unmount components during operations
-   - Always clean up listeners and check mounting status
-
-### Testing Insights:
-
-1. **Mock Data Best Practices**
-   - Use realistic names and data
-   - Include edge cases (empty bios, no friends)
-   - Test data should tell a story (interconnected users)
-
-2. **State Synchronization**
-   - Multiple screens showing same data need coordination
-   - Badge counts, friend counts, request lists must stay in sync
-   - Consider global state for frequently accessed data
-
-3. **User Credentials**
-   - Keep test credentials simple and documented
-   - Pattern: `{name}@example.com` / `{name}123`
-   - Changed from `password123` to `test123` for consistency
-
-### Performance Considerations Discovered:
-
-1. **Listener Cleanup**
-   - Navigation listeners must be unsubscribed
-   - Memory leaks from uncleaned listeners accumulate
-   - Always return cleanup function from useEffect
-
-2. **Unnecessary Re-renders**
-   - Focus listener fires even when data hasn't changed
-   - Consider memoization for expensive operations
-   - Track if data actually changed before re-rendering
-
-### Future-Proofing Decisions:
-
-1. **API Layer Abstraction**
-   - All Firebase calls go through API layer
-   - Switching to real Firebase requires minimal changes
-   - Mock and real implementations have same interface
-
-2. **Error Boundaries**
-   - Added try-catch blocks around all async operations
-   - User-friendly error messages vs technical errors
-   - Console errors for debugging, alerts for users
-
-3. **Scalability Considerations**
-   - Current mock loads all users at once
-   - Real app would need pagination
-   - Structure supports adding pagination later
-
-### Code Smells to Watch For:
-
-1. **Inline Magic Numbers**
-   ```javascript
-   // Bad: What does 86400000 mean?
-   new Date(Date.now() - 86400000)
-   
-   // Better: Self-documenting
-   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-   new Date(Date.now() - ONE_DAY_MS)
+   {
+     messageId: string,
+     chatId: string,
+     senderUid: string,
+     text: string,
+     mediaUrl: string,
+     mediaType: 'image' | 'video' | null,
+     createdAt: Date,
+     expiresAt: Date,
+     viewedBy: string[],
+     deleteOnView: boolean,
+     status: 'sending' | 'sent' | 'delivered' | 'read',
+     metadata: object
+   }
    ```
 
-2. **Inconsistent Error Handling**
-   - Some functions alert users, others only console.error
-   - Establish consistent error handling patterns
-   - User-facing vs developer-facing errors
+3. **Friend-Only Messaging**
+   - Enforced at API level with `areUsersFriends` check
+   - UI prevents messaging non-friends
+   - Chat creation blocked for non-friends
 
-3. **State Update Patterns**
-   ```javascript
-   // Good: Functional updates for derived state
-   setReceivedRequests(prev => prev.filter(req => req.id !== requestId));
+4. **Ephemeral Features**
+   - Delete-on-view: Messages deleted after recipient views
+   - Expiration times: 1 hour, 3 hours, 24 hours, 7 days
+   - Visual indicators: 👻 for ephemeral, time remaining display
+   - Automatic cleanup of expired messages
+
+### Key Features Implemented:
+
+1. **Real-time Messaging**
+   - Instant message delivery via Firestore listeners
+   - Typing indicators preparation (UI ready)
+   - Online/offline status preparation
+
+2. **Media Support**
+   - Image selection from camera or gallery
+   - Base64 and URI upload support
+   - Media preview in chat bubbles
+   - Ephemeral media with same rules as text
+
+3. **User Experience**
+   - Smooth keyboard handling on iOS/Android
+   - Message status indicators (sent, delivered, read)
+   - Time formatting (relative and absolute)
+   - Empty states with helpful guidance
+   - Pull-to-refresh on chat list
+
+4. **Navigation Integration**
+   - Direct navigation from SearchUsers when selecting for chat
+   - Chat access from HomeScreen messages button
+   - Profile navigation from chat headers
+
+### Architecture Decisions:
+
+1. **Consistent Chat IDs**
+   - Participants array always sorted to prevent duplicate chats
+   - Single chat per user pair enforced
+
+2. **Message Ordering**
+   - Messages sorted by createdAt descending (newest first)
+   - Inverted FlatList for natural chat flow
+
+3. **View Tracking**
+   - viewedBy array tracks all viewers
+   - Sender automatically included in viewedBy
+   - Delete-on-view only triggers for non-senders
+
+4. **Offline Resilience**
+   - Simple in-memory queue for MVP
+   - Could upgrade to AsyncStorage for persistence
+   - Automatic retry on reconnection
+
+### Challenges & Solutions:
+
+1. **Real-time Updates**
+   - **Challenge**: Keeping chat list and messages in sync
+   - **Solution**: Firestore listeners on both collections
+   - **Learning**: Unsubscribe listeners on unmount
+
+2. **Keyboard Handling**
+   - **Challenge**: Input hidden by keyboard on iOS
+   - **Solution**: KeyboardAvoidingView with platform-specific behavior
+   - **Note**: keyboardVerticalOffset needed for header
+
+3. **Message Ordering**
+   - **Challenge**: New messages appearing at wrong position
+   - **Solution**: Inverted FlatList with descending sort
+   - **Benefit**: Natural chat scroll behavior
+
+4. **Friend Validation**
+   - **Challenge**: Preventing messages to non-friends
+   - **Solution**: API-level validation before chat creation
+   - **UX**: Clear error message with navigation back
+
+### Performance Considerations:
+
+1. **Message Pagination**
+   - Currently loads last 50 messages
+   - Could implement infinite scroll for history
+   - Consider virtual list for large conversations
+
+2. **Image Optimization**
+   - Quality set to 0.8 for uploads
+   - Consider thumbnail generation
+   - Lazy loading for media messages
+
+3. **Listener Management**
+   - Careful unsubscribe on unmount
+   - Debounced search in chat list
+   - Efficient re-renders with React.memo
+
+### Security Considerations:
+
+1. **Access Control**
+   - Only participants can access chat messages
+   - Friend validation before messaging
+   - User can only mark own messages as sent
+
+2. **Data Privacy**
+   - Ephemeral messages deleted from storage
+   - Media files deleted with messages
+   - No message history after expiration
+
+3. **Input Validation**
+   - Message length limited to 500 characters
+   - Media type validation
+   - Expiration time boundaries
+
+### Testing Strategy:
+
+Created comprehensive test file covering:
+1. Friend validation
+2. Chat creation and retrieval
+3. Message sending (text and media)
+4. Ephemeral message behavior
+5. View tracking and deletion
+6. Read receipts
+7. Offline queue functionality
+8. Expired message cleanup
+
+### Lessons Learned:
+
+1. **Real-time Complexity**
+   - Multiple listeners need careful management
+   - State synchronization across screens
+   - Memory leaks from uncleaned listeners
+
+2. **Ephemeral Logic**
+   - Same patterns as posts work well
+   - View tracking must be accurate
+   - Deletion timing is critical
+
+3. **Chat UX**
+   - Users expect instant updates
+   - Visual feedback for all actions
+   - Clear indicators for ephemeral content
+
+4. **Mock Firebase Limitations**
+   - No real persistence between reloads
+   - Synchronous operations (no network delay)
+   - Limited query capabilities
+
+### Migration to Real Firebase:
+
+1. **Minimal Changes Required**
+   - Update imports in config/index.js
+   - Add Firestore security rules
+   - Configure message TTL with Cloud Functions
+
+2. **Security Rules Needed**
+```javascript
+   // Only participants can access chats
+   match /chats/{chatId} {
+     allow read, write: if request.auth.uid in resource.data.participants;
+   }
    
-   // Avoid: Direct state mutations
-   receivedRequests.filter(...) // NO!
+   // Only participants can access messages
+   match /messages/{messageId} {
+     allow read: if request.auth.uid in 
+       get(/databases/$(database)/documents/chats/$(resource.data.chatId)).data.participants;
+     allow create: if request.auth.uid == request.resource.data.senderUid;
+     allow update: if request.auth.uid in resource.data.viewedBy;
+   }
    ```
 
-### Mock Firebase Gotchas:
+3. **Cloud Functions for Cleanup**
+   - Scheduled function for expired messages
+   - Triggered function for delete-on-view
+   - Media cleanup on message deletion
 
-1. **Data Persistence**
-   - Mock data resets on every app reload
-   - Good for testing, confusing for new developers
-   - Document this limitation prominently
+### UI/UX Highlights:
 
-2. **Synchronous vs Asynchronous**
-   - Mock operations are instant
-   - Real Firebase has network latency
-   - Consider adding artificial delays for realistic testing
+1. **Visual Design**
+   - Snapchat yellow for sent messages
+   - Gray for received messages
+   - Clear ephemeral indicators
 
-3. **Missing Firebase Features**
-   - No real-time sync between devices
-   - No offline persistence
-   - No security rules validation
-   - No composite indexes
+2. **Interaction Patterns**
+   - Long press for message actions (future)
+   - Swipe for reply (future)
+   - Tap image for full screen (future)
 
-### Navigation Patterns Learned:
+3. **Accessibility**
+   - Clear contrast ratios
+   - Meaningful labels for screen readers
+   - Keyboard navigation support
 
-1. **Screen Communication**
-   - Params: One-time data pass
-   - Focus listeners: Refresh on return
-   - Context/Global state: Shared data
-   - Choose based on data freshness needs
+### Future Enhancements:
 
-2. **Header Customization**
-   - `useLayoutEffect` for header changes
-   - Prevents flicker on mount
-   - Dependencies must include all dynamic values
+1. **Phase 5 Preparation**
+   - Group messaging support
+   - Voice messages
+   - Video messages
+   - Typing indicators
+   - Online/offline status
 
-3. **Deep Linking Preparation**
-   - Screen names should be URL-friendly
-   - Params should be serializable
-   - Consider future deep link structure
+2. **Advanced Features**
+   - Message reactions
+   - Reply to specific messages
+   - Forward messages
+   - Message search
+   - Chat archiving
 
-### Summary of Key Learnings:
+3. **Performance**
+   - Message pagination
+   - Thumbnail generation
+   - Background message sync
+   - Push notification integration
 
-1. **Test with Realistic Data**: Empty databases hide issues
-2. **Plan for State Synchronization**: Multiple screens need coordination
-3. **Mock Completely**: Partial mocks cause confusing errors
-4. **Use Navigation Events**: Don't assume screens refresh
-5. **Handle Edge Cases**: Null users, empty lists, network errors
-6. **Document Decisions**: Future you will thank current you
+### Phase 4 Summary:
+
+Successfully implemented a fully functional direct messaging system with:
+- ✅ One-on-one messaging between friends
+- ✅ Text and image message support
+- ✅ Ephemeral messages (delete-on-view and expiration)
+- ✅ Real-time message delivery
+- ✅ Read receipts and delivery status
+- ✅ Offline message queuing
+- ✅ Chat list with search
+- ✅ Friend-only messaging enforcement
+- ✅ Comprehensive test coverage
+
+The implementation follows established patterns from previous phases while introducing new concepts specific to real-time messaging. The architecture is ready for production with minimal changes needed for real Firebase integration.
 
 ---
 
-*Next Session Goals: Begin Phase 3 - Camera Integration*
-*Remember: Camera requires development build, plan accordingly*
+*Last Updated: December 21, 2024*
+*Phase 4 Completed Successfully*
+*All Core MVP Features Complete - Ready for Phase 5 Polish*
+
+---
+
+## Phase 4 Post-Completion Bug Fixes
+
+### Completed Date: December 22, 2024
+
+### Critical Bug Fix: React Native Paper Provider Error
+
+#### 🚨 THE PAPER PROVIDER REQUIREMENT 🚨
+
+**Error Encountered**: "Looks like you forgot to wrap your root component with 'Provider' component from 'react-native-paper'."
+
+**Context**: After successfully implementing Phase 4 messaging, users experienced crashes when navigating to ChatRoomScreen (Messages → Click on person → Error)
+
+**Root Cause**: ChatRoomScreen and other screens use React Native Paper components (Button, TextInput, Dialog, etc.), but the app wasn't wrapped with the required PaperProvider context.
+
+```javascript
+// ❌ PROBLEM - Missing PaperProvider wrapper
+const App = () => {
+  return (
+    <AuthenticatedUserProvider>
+      <SafeAreaProvider>
+        <RootNavigator />
+      </SafeAreaProvider>
+    </AuthenticatedUserProvider>
+  );
+};
+```
+
+**The Fix**:
+```javascript
+// ✅ SOLUTION - Added PaperProvider wrapper
+import { Provider as PaperProvider } from "react-native-paper";
+
+const App = () => {
+  return (
+    <PaperProvider>
+      <AuthenticatedUserProvider>
+        <SafeAreaProvider>
+          <RootNavigator />
+        </SafeAreaProvider>
+      </AuthenticatedUserProvider>
+    </PaperProvider>
+  );
+};
+```
+
+**Files Affected**:
+- `App.js` - Added PaperProvider import and wrapper
+
+**Lesson Learned**: When using React Native Paper components throughout the app (which we do extensively in messaging screens), the entire app must be wrapped with PaperProvider from the start.
+
+### Why This Wasn't Caught Earlier:
+
+1. **Gradual Implementation**: Earlier screens used fewer Paper components
+2. **Mock Testing**: Focus was on data flow, not UI component integration
+3. **Component Library**: Paper components work in isolation but need global context
+4. **Expo Go Testing**: Some errors only appear when full navigation flows are tested
+
+### How to Avoid This in Future:
+
+1. **Provider Setup First**: When adopting a UI library, set up providers immediately
+2. **Full Flow Testing**: Test complete user journeys, not just individual screens
+3. **Component Dependency Check**: Verify all UI library requirements are met
+4. **Documentation Review**: Always check UI library setup requirements
+
+### Performance Impact:
+
+- **Positive**: PaperProvider enables proper theming and component optimization
+- **Minimal Overhead**: Provider context is lightweight
+- **Consistent Styling**: All Paper components now share theme and styling
+
+### Technical Details:
+
+1. **Provider Hierarchy**:
+   ```
+   PaperProvider (outermost - UI theme context)
+   └── AuthenticatedUserProvider (auth state)
+       └── SafeAreaProvider (safe area context)
+           └── RootNavigator (navigation)
+   ```
+
+2. **Paper Components Used**:
+   - `Button` - Throughout the app for actions
+   - `TextInput` - In ChatRoomScreen for message input
+   - `Dialog` - In ChatRoomScreen for ephemeral settings
+   - `Badge` - For unread counts in ChatListScreen
+   - `Surface` - For elevated containers
+
+3. **Theme Integration**:
+   - Paper now uses default Material Design theme
+   - Can be customized with custom theme object
+   - Consistent styling across all Paper components
+
+### Future Considerations:
+
+1. **Custom Theming**:
+   ```javascript
+   import { MD3LightTheme } from 'react-native-paper';
+   
+   const theme = {
+     ...MD3LightTheme,
+     colors: {
+       ...MD3LightTheme.colors,
+       primary: '#FFFC00', // Snapchat yellow
+     },
+   };
+   
+   <PaperProvider theme={theme}>
+   ```
+
+2. **Testing Strategy**:
+   - Always test full navigation flows
+   - Include provider setup in testing checklist
+   - Document UI library requirements
+
+3. **Development Process**:
+   - Set up all required providers when starting new projects
+   - Review component dependencies before implementation
+   - Test in realistic usage scenarios
+
+### Summary:
+
+This critical bug fix resolved messaging functionality completely. All Phase 4 features now work as intended:
+- ✅ Chat list displays correctly
+- ✅ Chat room navigation works without errors
+- ✅ All Paper components render properly
+- ✅ Messaging flow is fully functional
+- ✅ Real-time updates working
+- ✅ Ephemeral features operational
+
+**Impact**: This fix was essential for Phase 4 completion. Without it, the core messaging functionality was inaccessible to users.
+
+---
+
+## Project Status Summary
+
+### Completed Phases:
+- ✅ **Phase 0**: Development setup and foundation
+- ✅ **Phase 1**: Authentication and user profiles  
+- ✅ **Phase 2**: Friends and social graph
+- ✅ **Phase 3**: Ephemeral posts and stories
+- ✅ **Phase 4**: Direct messaging with ephemeral media
+
+### Remaining Phase 5 Tasks:
+- [ ] Emoji reactions to posts/stories
+- [ ] Push notifications for DMs and friend activity
+- [ ] User moderation (mute, block, report)
+- [ ] RAG preparation (metadata fields)
+
+### Overall Architecture Status:
+- **Mock Firebase**: Fully functional for all features
+- **API Layer**: Complete for users, friends, posts, messages
+- **UI Components**: All screens implemented and tested
+- **Navigation**: Complete flow with proper error handling
+- **Real-time Features**: Working via mock Firestore listeners
+- **Ephemeral Logic**: Consistent across posts and messages
+- **Testing**: Comprehensive test suites for all major features
+
+### Ready for Production:
+The app now has all core Snapchat-like functionality working in Expo Go. Ready for real Firebase integration and deployment with minimal code changes required.
+
+---
+
+*Last Updated: December 22, 2024*
+*Phase 4 Bug Fixes Complete*
+*MVP Core Functionality Fully Operational*

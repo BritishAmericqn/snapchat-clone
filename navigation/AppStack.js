@@ -1,5 +1,6 @@
 import * as React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
+import { Colors } from "../config";
 
 import { 
   HomeScreen, 
@@ -7,7 +8,10 @@ import {
   PrivacySettingsScreen,
   SearchUsersScreen,
   FriendRequestsScreen,
-  FriendSuggestionsScreen
+  FriendSuggestionsScreen,
+  CameraScreen,
+  MediaPreviewScreen,
+  FeedScreen
 } from "../screens";
 
 const Stack = createStackNavigator();
@@ -32,6 +36,34 @@ export const AppStack = () => {
         name="FriendSuggestions" 
         component={FriendSuggestionsScreen} 
         options={{ title: 'Friend Suggestions' }}
+      />
+      <Stack.Screen 
+        name="Camera" 
+        component={CameraScreen} 
+        options={{ 
+          headerShown: false,
+          gestureEnabled: true,
+          gestureDirection: 'vertical',
+        }}
+      />
+      <Stack.Screen 
+        name="MediaPreview" 
+        component={MediaPreviewScreen} 
+        options={{ 
+          headerShown: false,
+          gestureEnabled: true,
+        }}
+      />
+      <Stack.Screen 
+        name="Feed" 
+        component={FeedScreen} 
+        options={{ 
+          title: 'Snaps',
+          headerStyle: {
+            backgroundColor: Colors.black,
+          },
+          headerTintColor: Colors.white,
+        }}
       />
     </Stack.Navigator>
   );

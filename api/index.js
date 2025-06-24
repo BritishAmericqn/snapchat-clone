@@ -22,4 +22,14 @@ export {
   getSentFriendRequests,
   checkFriendStatus,
   getFriendSuggestions,
-} from './friends'; 
+} from './friends';
+
+// Posts API exports
+export {
+  createPost,
+  getFeedPosts,
+  viewPost,
+  deletePost,
+  getUserPosts,
+  cleanupExpiredPosts,
+} from './posts'; 

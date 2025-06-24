@@ -7,6 +7,9 @@ import { PrivacySettingsScreen } from './PrivacySettingsScreen';
 import { SearchUsersScreen } from './SearchUsersScreen';
 import { FriendRequestsScreen } from './FriendRequestsScreen';
 import { FriendSuggestionsScreen } from './FriendSuggestionsScreen';
+import { CameraScreen } from './CameraScreen';
+import { MediaPreviewScreen } from './MediaPreviewScreen';
+import { FeedScreen } from './FeedScreen';
 
 export { 
   LoginScreen, 
@@ -17,5 +20,8 @@ export {
   PrivacySettingsScreen,
   SearchUsersScreen,
   FriendRequestsScreen,
-  FriendSuggestionsScreen 
+  FriendSuggestionsScreen,
+  CameraScreen,
+  MediaPreviewScreen,
+  FeedScreen 
 };

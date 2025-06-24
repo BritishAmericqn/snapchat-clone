@@ -7,6 +7,7 @@ export const Colors = {
   // Additional UI colors
   gray: "#8e8e93",        // For secondary text
   lightGray: "#f4f4f4",   // For backgrounds
+  darkGray: "#333333",    // For dark backgrounds
   red: "#fc5c65",         // For errors
   blue: "#039be5",        // For links
   

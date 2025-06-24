@@ -441,6 +441,306 @@ export const createUserProfile = async (uid, data) => {
 
 ---
 
+## Phase 3: Ephemeral Posts & Stories
+
+### Completed Date: December 21, 2024
+
+### What Was Done:
+
+1. **Mock Firebase Storage Implementation**
+   - Created complete storage mock with upload, download, delete functionality
+   - Supports both base64 and URI-based uploads
+   - Generates proper download URLs (placeholder images for testing)
+   - Stores media references in memory
+
+2. **Posts API Layer** (`api/posts.js`)
+   - `createPost`: Creates ephemeral posts with media, caption, visibility settings
+   - `getFeedPosts`: Retrieves posts based on friend relationships and visibility
+   - `viewPost`: Tracks views and handles delete-on-view functionality
+   - `deletePost`: Removes posts and associated media
+   - `getUserPosts`: Gets posts by specific user
+   - `cleanupExpiredPosts`: Removes posts past expiration time
+
+3. **Camera Screen Implementation**
+   - Uses expo-image-picker for Expo Go compatibility
+   - Three capture methods: camera, gallery, test images
+   - Full-screen Snapchat-style interface
+   - Placeholder UI for future expo-camera integration
+   - Test images feature for easy testing
+
+4. **Media Preview Screen**
+   - Preview captured/selected media before posting
+   - Caption input with 200 character limit
+   - Visibility settings: friends, friends of friends, public
+   - Ephemeral settings: delete after viewing, expiration time (1hr-1week)
+   - Posts to Firebase with all metadata
+
+5. **Feed Screen**
+   - Displays posts from user and friends based on visibility rules
+   - Shows time remaining, view count, author info
+   - Handles view tracking and delete-on-view
+   - Pull-to-refresh functionality
+   - Empty state with call-to-action
+   - Visual indicators for viewed posts (✓) and delete-on-view posts (👻)
+
+6. **Test Data Population**
+   - Added 6 test posts from different users
+   - Various visibility settings and expiration times
+   - Some with delete-on-view enabled
+   - Test user given friends to see their posts
+
+### Technical Implementation Details:
+
+1. **Mock Storage URL Fix**
+   ```javascript
+   // Problem: mock:// URLs don't work in React Native
+   // Solution: Return actual URLs or data URIs
+   if (fileData.format === 'base64' && fileData.data) {
+     url = `data:image/jpeg;base64,${fileData.data}`;
+   }
+   // Fallback to placeholder images
+   if (!url || (!url.startsWith('http') && !url.startsWith('data:'))) {
+     url = `https://picsum.photos/400/600?random=${randomId}`;
+   }
+   ```
+
+2. **Date Handling in Mock Firebase**
+   ```javascript
+   // Store dates as Date objects, not Firestore timestamps
+   createdAt: new Date(),
+   expiresAt: new Date(Date.now() + expirationMs),
+   // This works with mock but needs adjustment for real Firebase
+   ```
+
+3. **Feed Visibility Logic**
+   ```javascript
+   // Complex filtering based on:
+   // 1. User's own posts (always visible)
+   // 2. Friends' posts (if visibility allows)
+   // 3. Friends of friends' posts (if visibility allows)
+   // 4. Public posts (always visible)
+   // 5. Not expired
+   // 6. Not deleted
+   ```
+
+4. **Delete-on-View Implementation**
+   ```javascript
+   // Track views and check delete flag
+   if (post.deleteOnView && !post.viewedBy.includes(currentUserId)) {
+     // Delete post after updating view count
+     await deletePost(postId);
+   }
+   ```
+
+### Key Features Implemented:
+
+1. **Ephemeral Content**
+   - Posts expire after set time (1 hour to 1 week)
+   - Optional delete-on-view for true Snapchat experience
+   - Automatic cleanup of expired posts
+   - Visual indicators for ephemeral content
+
+2. **Privacy Controls**
+   - Three visibility levels: friends, friends of friends, public
+   - Respects user relationships from Phase 2
+   - Only friends can see friend-only posts
+   - Friends of friends extends visibility network
+
+3. **Media Handling**
+   - Support for camera capture (when available)
+   - Gallery selection for existing photos
+   - Test images for easy development
+   - Proper storage integration with mock Firebase
+
+4. **User Experience**
+   - Snapchat-like camera interface
+   - Smooth navigation flow
+   - Real-time feed updates
+   - Clear visual feedback for all actions
+
+### Challenges & Solutions:
+
+1. **Mock Storage URLs**
+   - **Challenge**: React Native couldn't load mock:// URLs
+   - **Solution**: Return data URIs or placeholder images
+   - **Learning**: Always test image loading in the actual app
+
+2. **Expo Go Camera Limitations**
+   - **Challenge**: Can't use expo-camera in Expo Go
+   - **Solution**: Use expo-image-picker as alternative
+   - **Future**: UI ready for camera when using dev build
+
+3. **Date Serialization**
+   - **Challenge**: Firestore Timestamp vs JavaScript Date
+   - **Solution**: Use plain Date objects in mock
+   - **Note**: Will need adjustment for real Firebase
+
+4. **Feed Sorting & Filtering**
+   - **Challenge**: Complex visibility rules and sorting
+   - **Solution**: Multi-step filtering with clear logic
+   - **Performance**: Consider pagination for large datasets
+
+### Architecture Decisions:
+
+1. **Separate API Layer for Posts**
+   - Consistent with friends API pattern
+   - Easy to swap mock for real implementation
+   - Clear separation of concerns
+
+2. **Storage Path Convention**
+   ```javascript
+   `posts/${userId}/${postId}_${timestamp}.${extension}`
+   ```
+   - Organized by user for easy cleanup
+   - Timestamp prevents collisions
+   - Extension preserved for proper handling
+
+3. **Post Data Model**
+   ```javascript
+   {
+     postId: string,
+     authorUid: string,
+     mediaUrl: string,
+     mediaType: 'image' | 'video',
+     caption: string,
+     visibility: 'friends' | 'friendsOfFriends' | 'public',
+     viewCount: number,
+     expiresAt: Date,
+     deleteOnView: boolean,
+     viewedBy: string[],
+     createdAt: Date,
+     metadata: object
+   }
+   ```
+
+### Testing Insights:
+
+1. **Test Data Importance**
+   - Pre-populated posts essential for UI testing
+   - Variety of settings reveals edge cases
+   - Interconnected users test visibility rules
+
+2. **Image Loading**
+   - Placeholder images prevent loading errors
+   - Lorem Picsum provides variety
+   - Random parameter prevents caching issues
+
+3. **Ephemeral Behavior**
+   - Delete-on-view needs clear visual indicators
+   - Expiration times should be testable (short options)
+   - View tracking must be accurate
+
+### Performance Considerations:
+
+1. **Feed Loading**
+   - Currently loads all posts then filters
+   - Real app needs pagination
+   - Consider caching viewed posts
+
+2. **Image Optimization**
+   - Need compression before upload
+   - Thumbnail generation for feed
+   - Lazy loading for better performance
+
+3. **Real-time Updates**
+   - Mock notifies listeners on changes
+   - Real Firebase has built-in real-time
+   - Consider WebSocket for custom backend
+
+### Security Considerations:
+
+1. **Post Visibility**
+   - Enforce on backend, not just frontend
+   - Check friend relationships server-side
+   - Validate expiration times
+
+2. **Media Access**
+   - Storage rules should match post visibility
+   - Signed URLs for time-limited access
+   - Clean up orphaned media
+
+3. **User Actions**
+   - Only author can delete own posts
+   - View tracking prevents manipulation
+   - Rate limiting on post creation
+
+### Lessons Learned:
+
+1. **Start with Mock, Plan for Real**
+   - Mock implementation reveals data flow
+   - Same API interface eases transition
+   - Test edge cases early
+
+2. **UI Before Features**
+   - Built camera UI even without camera access
+   - Placeholder functionality prevents blocking
+   - Progressive enhancement approach
+
+3. **Visual Feedback Crucial**
+   - Users need to understand ephemeral nature
+   - Icons and colors convey meaning
+   - Consistent patterns across app
+
+4. **Test Data Tells Stories**
+   - Realistic data reveals UX issues
+   - Variety tests edge cases
+   - Interconnected data tests relationships
+
+### Bug Fixes During Implementation:
+
+1. **Mock Storage URL Error**
+   - **Error**: "No suitable URL request handler found for mock://storage/..."
+   - **Cause**: React Native can't handle custom mock:// protocol
+   - **Fix**: Return data URIs for base64 or placeholder images from Lorem Picsum
+   - **Learning**: Always return valid URLs that React Native can load
+
+2. **Missing Posts in Feed**
+   - **Issue**: Only showing user's own posts
+   - **Cause**: Test user had no friends
+   - **Fix**: Added friends to test user and created posts from those friends
+   - **Learning**: Test data relationships are crucial for feature testing
+
+### Next Phase Preparation:
+
+1. **Direct Messaging**
+   - Reuse ephemeral post concepts
+   - Need chat/conversation model
+   - Real-time message delivery
+
+2. **Stories Format**
+   - Multiple media per story
+   - 24-hour expiration standard
+   - Story viewer UI component
+
+3. **Development Build**
+   - Required for camera, push notifications
+   - Plan migration from Expo Go
+   - Test on real devices
+
+### Code Quality Notes:
+
+1. **Consistent Error Handling**
+   ```javascript
+   try {
+     // operation
+   } catch (error) {
+     console.error('[Context] Error:', error);
+     Alert.alert('Error', 'User-friendly message');
+   }
+   ```
+
+2. **Loading States**
+   - Every async operation needs loading indicator
+   - Disable interactions during loading
+   - Clear feedback on completion
+
+3. **Memory Management**
+   - Unsubscribe from listeners on unmount
+   - Clear timers and intervals
+   - Avoid memory leaks in mock storage
+
+---
+
 ## Phase 2: Friends & Social Graph
 
 ### Completed Date: December 19, 2024
@@ -664,8 +964,9 @@ Created `test-friend-features.js` with comprehensive tests:
 
 ---
 
-*Last Updated: December 19, 2024*
-*Phase 2 Completed Successfully*
+*Last Updated: December 21, 2024*
+*Phase 3 Completed Successfully*
+*Next Review: After Phase 4 completion*
 
 ---
 

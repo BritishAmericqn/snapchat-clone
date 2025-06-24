@@ -52,12 +52,22 @@ Assumes project created with expo-firebase-starter and `.env` configured.
 - ✅ Added informative alerts for Snap/Messages placeholders
 - ✅ Changed test user password to 'test123' for consistency
 
-## Phase 3 – Ephemeral Posts & Stories
-19. [ ] Build or replace camera screen with Expo Camera if not already included.
-20. [ ] Upload media to Firebase Storage and log metadata to Firestore.
-21. [ ] Add post/story expiration (`expiresAt`) and one-time view flag (`deleteOnView`).
-22. [ ] Track viewer UIDs and implement deletion logic on view.
-23. [ ] Set up Cloud Function or cron job to delete expired posts/stories.
+## Phase 3 – Ephemeral Posts & Stories ✅
+19. ✅ Build or replace camera screen with Expo Camera if not already included.
+20. ✅ Upload media to Firebase Storage and log metadata to Firestore.
+21. ✅ Add post/story expiration (`expiresAt`) and one-time view flag (`deleteOnView`).
+22. ✅ Track viewer UIDs and implement deletion logic on view.
+23. ⚠️  Set up Cloud Function or cron job to delete expired posts/stories. [Client-side cleanup implemented]
+
+### Phase 3 Additional Achievements:
+- ✅ Created mock Firebase Storage with full functionality
+- ✅ Built CameraScreen with expo-image-picker (Expo Go compatible)
+- ✅ MediaPreviewScreen with caption, visibility, and ephemeral settings
+- ✅ FeedScreen showing posts with proper visibility filtering
+- ✅ Delete-on-view functionality working
+- ✅ View tracking with visual indicators
+- ✅ Test data with variety of posts
+- ✅ Proper image loading with fallbacks
 
 ## Phase 4 – Direct Messaging with Ephemeral Media
 24. [ ] Create or adapt `ChatRoomScreen` for DMs with friends only.
@@ -82,4 +92,9 @@ Assumes project created with expo-firebase-starter and `.env` configured.
 - **Phase 2 Success**: Friend system fully functional with mock Firestore
 - **Navigation Focus**: Use focus listeners to refresh data when returning to screens
 - **Mock Data Structure**: Create realistic test data with interconnected relationships
-- **Next Phase**: Camera integration will require development build
+- **Phase 3 Success**: Ephemeral posts fully functional with mock storage and Firestore
+- **Image Handling**: Mock storage returns placeholder URLs; real storage will return actual media
+- **Expo Camera Alternative**: expo-image-picker works in Expo Go as camera replacement
+- **Delete-on-View**: Successfully implemented with proper view tracking
+- **Feed Visibility**: Complex filtering respects friend relationships and privacy settings
+- **Next Phase**: Direct messaging will build on ephemeral concepts from posts

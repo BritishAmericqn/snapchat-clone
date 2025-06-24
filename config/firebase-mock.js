@@ -28,7 +28,7 @@ const mockFirestoreData = {
       displayName: 'Test User',
       bio: 'This is a test account',
       profilePhotoUrl: '',
-      friendIds: [],
+      friendIds: ['user_sarah', 'user_mike', 'user_emma', 'user_john'],  // Added friends to see their posts
       createdAt: new Date(),
     },
     'user_john': {
@@ -153,6 +153,92 @@ const mockFirestoreData = {
       status: 'pending',
       createdAt: new Date(Date.now() - 43200000), // 12 hours ago
     }
+  },
+  posts: {
+    'post_sarah_1': {
+      postId: 'post_sarah_1',
+      authorUid: 'user_sarah',
+      mediaUrl: 'https://picsum.photos/400/600?random=sarah1',
+      mediaType: 'image',
+      caption: 'Beautiful sunset at the beach! 🌅',
+      visibility: 'friends',
+      viewCount: 3,
+      expiresAt: new Date(Date.now() + 20 * 60 * 60 * 1000), // 20 hours from now
+      deleteOnView: false,
+      viewedBy: ['user_mike', 'user_emma', 'user_john'],
+      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+      metadata: {},
+    },
+    'post_mike_1': {
+      postId: 'post_mike_1',
+      authorUid: 'user_mike',
+      mediaUrl: 'https://picsum.photos/400/600?random=mike1',
+      mediaType: 'image',
+      caption: 'Check out this view! This snap will disappear after you see it 👻',
+      visibility: 'friends',
+      viewCount: 1,
+      expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000), // 12 hours from now
+      deleteOnView: true,
+      viewedBy: ['user_sarah'],
+      createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
+      metadata: {},
+    },
+    'post_emma_1': {
+      postId: 'post_emma_1',
+      authorUid: 'user_emma',
+      mediaUrl: 'https://picsum.photos/400/600?random=emma1',
+      mediaType: 'image',
+      caption: 'Coffee time ☕',
+      visibility: 'friendsOfFriends',
+      viewCount: 5,
+      expiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000), // 6 hours from now
+      deleteOnView: false,
+      viewedBy: ['user_sarah', 'user_mike', 'user_john', 'user_alex', 'user_lisa'],
+      createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+      metadata: {},
+    },
+    'post_john_1': {
+      postId: 'post_john_1',
+      authorUid: 'user_john',
+      mediaUrl: 'https://picsum.photos/400/600?random=john1',
+      mediaType: 'image',
+      caption: 'Weekend vibes 🎉',
+      visibility: 'public',
+      viewCount: 8,
+      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000), // 2 days from now
+      deleteOnView: false,
+      viewedBy: ['user_sarah', 'user_mike', 'user_emma', 'user_alex', 'user_lisa', 'user_david', 'user_sophie', 'user_chris'],
+      createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
+      metadata: {},
+    },
+    'post_alex_1': {
+      postId: 'post_alex_1',
+      authorUid: 'user_alex',
+      mediaUrl: 'https://picsum.photos/400/600?random=alex1',
+      mediaType: 'image',
+      caption: 'Hiking adventures 🏔️',
+      visibility: 'friends',
+      viewCount: 2,
+      expiresAt: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours from now
+      deleteOnView: false,
+      viewedBy: ['user_lisa', 'user_david'],
+      createdAt: new Date(Date.now() - 45 * 60 * 1000), // 45 minutes ago
+      metadata: {},
+    },
+    'post_lisa_1': {
+      postId: 'post_lisa_1',
+      authorUid: 'user_lisa',
+      mediaUrl: 'https://picsum.photos/400/600?random=lisa1',
+      mediaType: 'image',
+      caption: 'Art gallery visit 🎨 (disappears after viewing!)',
+      visibility: 'friends',
+      viewCount: 0,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+      deleteOnView: true,
+      viewedBy: [],
+      createdAt: new Date(Date.now() - 15 * 60 * 1000), // 15 minutes ago
+      metadata: {},
+    },
   },
   // Add more collections as needed
 };
@@ -736,7 +822,154 @@ export const arrayRemove = mockFirestore.FieldValue.arrayRemove;
 export const serverTimestamp = mockFirestore.FieldValue.serverTimestamp;
 export const deleteField = mockFirestore.FieldValue.delete;
 
-// Mock Storage  
-export const storage = {};
+// Mock Storage data storage
+const mockStorageData = {};
+
+// Mock Storage implementation
+const mockStorage = {
+  ref: (path) => {
+    console.log('[MockStorage] ref called with path:', path);
+    
+    return {
+      // Upload a file (base64 string for mock)
+      putString: (data, format = 'base64') => {
+        console.log('[MockStorage] putString called for path:', path);
+        
+        return {
+          // Mock upload task
+          on: (event, progressCallback, errorCallback, successCallback) => {
+            console.log('[MockStorage] Upload task started');
+            
+            // Simulate upload progress
+            setTimeout(() => progressCallback && progressCallback({ bytesTransferred: 50, totalBytes: 100 }), 100);
+            setTimeout(() => progressCallback && progressCallback({ bytesTransferred: 100, totalBytes: 100 }), 200);
+            
+            // Simulate upload completion
+            setTimeout(() => {
+              mockStorageData[path] = { data, format, uploadedAt: new Date() };
+              console.log('[MockStorage] Upload completed for:', path);
+              successCallback && successCallback();
+            }, 300);
+            
+            // Return unsubscribe function
+            return () => {
+              console.log('[MockStorage] Upload task unsubscribed');
+            };
+          },
+          
+          // Promise-based upload
+          then: (resolve, reject) => {
+            setTimeout(() => {
+              mockStorageData[path] = { data, format, uploadedAt: new Date() };
+              console.log('[MockStorage] Upload completed for:', path);
+              resolve({
+                ref: mockStorage.ref(path),
+                metadata: { contentType: 'image/jpeg' },
+              });
+            }, 300);
+          },
+        };
+      },
+      
+      // Upload file (for image picker result)
+      put: (file) => {
+        console.log('[MockStorage] put called for path:', path);
+        
+        // For mock, we'll store the file URI
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            mockStorageData[path] = { 
+              uri: file.uri || file, 
+              uploadedAt: new Date(),
+              type: 'file',
+            };
+            console.log('[MockStorage] File upload completed for:', path);
+            resolve({
+              ref: mockStorage.ref(path),
+              metadata: { contentType: file.type || 'image/jpeg' },
+            });
+          }, 300);
+        });
+      },
+      
+      // Get download URL
+      getDownloadURL: () => {
+        console.log('[MockStorage] getDownloadURL called for path:', path);
+        
+        return new Promise((resolve, reject) => {
+          const fileData = mockStorageData[path];
+          if (fileData) {
+            // For mock, return the original URI or a placeholder image
+            let url = fileData.uri || fileData.data;
+            
+            // If it's base64, prepend the data URI scheme
+            if (fileData.format === 'base64' && fileData.data) {
+              url = `data:image/jpeg;base64,${fileData.data}`;
+            }
+            
+            // If no valid URL, use a placeholder
+            if (!url || (!url.startsWith('http') && !url.startsWith('data:'))) {
+              // Use a random placeholder image
+              const randomId = Math.floor(Math.random() * 1000);
+              url = `https://picsum.photos/400/600?random=${randomId}`;
+            }
+            
+            console.log('[MockStorage] Returning download URL:', url);
+            resolve(url);
+          } else {
+            reject(new Error('File not found'));
+          }
+        });
+      },
+      
+      // Delete file
+      delete: () => {
+        console.log('[MockStorage] delete called for path:', path);
+        
+        return new Promise((resolve) => {
+          delete mockStorageData[path];
+          console.log('[MockStorage] File deleted:', path);
+          resolve();
+        });
+      },
+      
+      // Get metadata
+      getMetadata: () => {
+        console.log('[MockStorage] getMetadata called for path:', path);
+        
+        return new Promise((resolve, reject) => {
+          const fileData = mockStorageData[path];
+          if (fileData) {
+            resolve({
+              contentType: 'image/jpeg',
+              size: 1024 * 1024, // Mock 1MB
+              timeCreated: fileData.uploadedAt,
+              updated: fileData.uploadedAt,
+            });
+          } else {
+            reject(new Error('File not found'));
+          }
+        });
+      },
+    };
+  },
+  
+  // Helper to get stored data (for testing)
+  _getStoredData: () => mockStorageData,
+  
+  // Helper to clear all data
+  _clearAll: () => {
+    Object.keys(mockStorageData).forEach(key => delete mockStorageData[key]);
+    console.log('[MockStorage] All storage data cleared');
+  },
+};
+
+// Storage exports
+export const storage = mockStorage;
+export const ref = (storage, path) => storage.ref(path);
+export const uploadString = (storageRef, data, format) => storageRef.putString(data, format);
+export const uploadBytes = (storageRef, data) => storageRef.put(data);
+export const getDownloadURL = (storageRef) => storageRef.getDownloadURL();
+export const deleteObject = (storageRef) => storageRef.delete();
 
 console.log('[MockAuth] Mock Firebase initialized'); 

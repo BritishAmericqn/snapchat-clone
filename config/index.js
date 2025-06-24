@@ -22,7 +22,13 @@ export {
   arrayUnion,
   arrayRemove,
   serverTimestamp,
-  deleteField
+  deleteField,
+  // Storage exports
+  ref,
+  uploadString,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject
 } from './firebase-mock';
 
 export { Images, Colors, auth, db, storage };

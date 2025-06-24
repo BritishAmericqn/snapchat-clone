@@ -44,12 +44,8 @@ export const HomeScreen = ({ navigation }) => {
 
   const handleSnapPress = () => {
     console.log('Snap pressed');
-    // Phase 3 placeholder
-    Alert.alert(
-      'Camera Feature Coming Soon!',
-      'The camera feature will be available in Phase 3. It will include:\n\n• Photo and video capture\n• AR filters\n• Ephemeral content\n• Story creation',
-      [{ text: 'OK', style: 'default' }]
-    );
+    // Navigate to camera screen
+    navigation.navigate('Camera');
   };
 
   const handleMessagesPress = () => {
@@ -116,6 +112,16 @@ export const HomeScreen = ({ navigation }) => {
               onPress={handleMessagesPress}
             >
               Messages
+            </Button>
+            
+            <Button 
+              mode="contained" 
+              icon="image-multiple" 
+              style={[styles.quickButton, styles.feedButton]}
+              labelStyle={styles.quickButtonLabel}
+              onPress={() => navigation.navigate('Feed')}
+            >
+              View Snaps
             </Button>
           </Card.Content>
         </Card>
@@ -218,6 +224,9 @@ const styles = StyleSheet.create({
   },
   chatButton: {
     backgroundColor: Colors.blue,
+  },
+  feedButton: {
+    backgroundColor: Colors.green,
   },
   friendButton: {
     marginBottom: 10,

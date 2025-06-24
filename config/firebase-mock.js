@@ -1025,19 +1025,35 @@ const mockStorage = {
       // Upload file (for image picker result)
       put: (file) => {
         console.log('[MockStorage] put called for path:', path);
+        console.log('[MockStorage] File object:', { 
+          type: typeof file, 
+          hasUri: !!(file && file.uri),
+          isString: typeof file === 'string'
+        });
         
         // For mock, we'll store the file URI
         return new Promise((resolve) => {
           setTimeout(() => {
+            // Handle different file formats
+            let fileUri = '';
+            if (typeof file === 'string') {
+              fileUri = file;
+            } else if (file && file.uri) {
+              fileUri = file.uri;
+            } else if (file) {
+              fileUri = String(file);
+            }
+            
             mockStorageData[path] = { 
-              uri: file.uri || file, 
+              uri: fileUri, 
               uploadedAt: new Date(),
               type: 'file',
+              originalFile: file, // Store original for debugging
             };
             console.log('[MockStorage] File upload completed for:', path);
             resolve({
               ref: mockStorage.ref(path),
-              metadata: { contentType: file.type || 'image/jpeg' },
+              metadata: { contentType: (file && file.type) || 'image/jpeg' },
             });
           }, 300);
         });
@@ -1053,16 +1069,30 @@ const mockStorage = {
             // For mock, return the original URI or a placeholder image
             let url = fileData.uri || fileData.data;
             
+            // Handle expo-image-picker result object
+            if (url && typeof url === 'object' && url.uri) {
+              url = url.uri;
+            }
+            
+            // Convert to string if needed
+            if (url && typeof url !== 'string') {
+              url = String(url);
+            }
+            
             // If it's base64, prepend the data URI scheme
-            if (fileData.format === 'base64' && fileData.data) {
+            if (fileData.format === 'base64' && fileData.data && typeof fileData.data === 'string') {
               url = `data:image/jpeg;base64,${fileData.data}`;
             }
             
-            // If no valid URL, use a placeholder
-            if (!url || (!url.startsWith('http') && !url.startsWith('data:'))) {
-              // Use a random placeholder image
+            // FIXED: Only use placeholder for truly invalid URIs
+            // Trust URIs from expo-image-picker (file://, content://, data:, http:, https:)
+            if (!url || typeof url !== 'string' || url.length === 0) {
+              // Use a random placeholder image only when there's no valid URI
               const randomId = Math.floor(Math.random() * 1000);
               url = `https://picsum.photos/400/600?random=${randomId}`;
+              console.log('[MockStorage] No valid URI found, using placeholder');
+            } else {
+              console.log('[MockStorage] Returning original URI');
             }
             
             console.log('[MockStorage] Returning download URL:', url);

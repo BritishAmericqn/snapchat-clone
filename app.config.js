@@ -17,14 +17,35 @@ export default {
       fallbackToCacheTimeout: 0,
     },
     assetBundlePatterns: ["**/*"],
+    plugins: [
+      [
+        "expo-image-picker",
+        {
+          photosPermission: "The app accesses your photos to let you share them with friends.",
+          cameraPermission: "The app accesses your camera to let you take photos and videos to share with friends."
+        }
+      ]
+    ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.snapchatclone.app"
+      bundleIdentifier: "com.snapchatclone.app",
+      infoPlist: {
+        NSCameraUsageDescription: "This app uses the camera to take photos and videos to share with friends.",
+        NSPhotoLibraryUsageDescription: "This app uses the photo library to let you share photos with friends."
+      }
     },
     android: {
-      package: "com.snapchatclone.app"
+      package: "com.snapchatclone.app",
+      permissions: [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     extra: {
+      eas: {
+        projectId: "e09a4a91-8386-420d-9275-8fda8a7f7129"
+      },
       apiKey: process.env.API_KEY,
       authDomain: process.env.AUTH_DOMAIN,
       projectId: process.env.PROJECT_ID,

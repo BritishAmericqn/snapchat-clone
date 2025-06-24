@@ -3,7 +3,8 @@ import { createStackNavigator } from "@react-navigation/stack";
 import { Colors } from "../config";
 
 import { 
-  HomeScreen, 
+  HomeScreen,
+  MainPagerScreen, 
   ProfileScreen, 
   PrivacySettingsScreen,
   SearchUsersScreen,
@@ -15,7 +16,8 @@ import {
   UserProfileScreen,
   FriendsListScreen,
   ChatListScreen,
-  ChatRoomScreen
+  ChatRoomScreen,
+  StoryViewerScreen
 } from "../screens";
 
 const Stack = createStackNavigator();
@@ -23,7 +25,21 @@ const Stack = createStackNavigator();
 export const AppStack = () => {
   return (
     <Stack.Navigator>
-      <Stack.Screen name="Home" component={HomeScreen} />
+      <Stack.Screen 
+        name="MainPager" 
+        component={MainPagerScreen} 
+        options={{ headerShown: false }}
+      />
+      {/* Legacy HomeScreen - kept for testing but not in primary flow */}
+      <Stack.Screen 
+        name="Home" 
+        component={HomeScreen}
+        options={{ 
+          title: 'Legacy Home (Testing)',
+          headerStyle: { backgroundColor: Colors.black },
+          headerTintColor: Colors.white,
+        }}
+      />
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} />
       <Stack.Screen 
@@ -85,6 +101,15 @@ export const AppStack = () => {
       />
       <Stack.Screen name='ChatList' component={ChatListScreen} />
       <Stack.Screen name='ChatRoom' component={ChatRoomScreen} />
+      <Stack.Screen 
+        name="StoryViewer" 
+        component={StoryViewerScreen} 
+        options={{ 
+          headerShown: false,
+          gestureEnabled: true,
+          gestureDirection: 'vertical',
+        }}
+      />
     </Stack.Navigator>
   );
 };

@@ -51,10 +51,10 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
           {
             text: 'OK',
             onPress: () => {
-              // Navigate back to home
+              // Navigate back to MainPager (the new main screen)
               navigation.reset({
                 index: 0,
-                routes: [{ name: 'Home' }],
+                routes: [{ name: 'MainPager' }],
               });
             },
           },

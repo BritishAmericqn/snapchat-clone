@@ -124,6 +124,12 @@ export const ChatRoomScreen = ({ route, navigation }) => {
     
     setSending(true);
     try {
+      console.log('[ChatRoomScreen] handleSend called with:', { 
+        mediaUri,
+        mediaType,
+        mediaUriType: typeof mediaUri 
+      });
+      
       await sendMessage({
         chatId,
         senderUid: user.uid,
@@ -193,6 +199,16 @@ export const ChatRoomScreen = ({ route, navigation }) => {
     const isOwnMessage = item.senderUid === user.uid;
     const timeRemaining = getTimeRemaining(item.expiresAt);
     
+    // Debug logging for image URLs
+    if (item.mediaUrl) {
+      console.log('[ChatRoomScreen] Rendering message with image:', {
+        messageId: item.id,
+        mediaUrl: item.mediaUrl,
+        isFileUri: item.mediaUrl?.startsWith('file://'),
+        isHttpUri: item.mediaUrl?.startsWith('http'),
+      });
+    }
+    
     return (
       <View style={[
         styles.messageContainer,
@@ -203,7 +219,17 @@ export const ChatRoomScreen = ({ route, navigation }) => {
           isOwnMessage ? styles.ownBubble : styles.otherBubble
         ]}>
           {item.mediaUrl && (
-            <Image source={{ uri: item.mediaUrl }} style={styles.messageImage} />
+            <Image 
+              source={{ uri: item.mediaUrl }} 
+              style={styles.messageImage}
+              onError={(e) => {
+                console.error('[ChatRoomScreen] Image load error:', e.nativeEvent.error);
+                console.error('[ChatRoomScreen] Failed URL:', item.mediaUrl);
+              }}
+              onLoad={() => {
+                console.log('[ChatRoomScreen] Image loaded successfully:', item.mediaUrl);
+              }}
+            />
           )}
           {item.text ? (
             <Text style={[

@@ -9,6 +9,7 @@ import {
   Alert,
   SafeAreaView,
   ActivityIndicator,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -204,28 +205,59 @@ export const CameraScreen = ({ navigation }) => {
 
         {/* Bottom Controls */}
         <View style={styles.bottomControls}>
-          <TouchableOpacity
-            style={styles.galleryButton}
-            onPress={pickFromGallery}
-          >
-            <Ionicons name="images" size={30} color={Colors.white} />
-          </TouchableOpacity>
+          {/* Recent Friends for Quick Send */}
+          <View style={styles.quickSendContainer}>
+            <Text style={styles.quickSendTitle}>Send to:</Text>
+            <FlatList
+              horizontal
+              data={[]} // TODO: Add recent friends
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.friendBubble}>
+                  <View style={styles.friendAvatar}>
+                    <Text style={styles.friendInitial}>{item.username?.[0]}</Text>
+                  </View>
+                  <Text style={styles.friendName}>{item.username}</Text>
+                </TouchableOpacity>
+              )}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.friendsList}
+            />
+          </View>
 
-          <TouchableOpacity
-            style={styles.captureButton}
-            onPress={takePicture}
-            disabled={isLoading}
-          >
-            <View style={styles.captureButtonInner} />
-          </TouchableOpacity>
+          {/* Capture Controls */}
+          <View style={styles.captureControls}>
+            <TouchableOpacity
+              style={styles.galleryButton}
+              onPress={pickFromGallery}
+              disabled={isLoading}
+            >
+              <Ionicons name="images" size={24} color={Colors.white} />
+            </TouchableOpacity>
 
-          {/* Test Image Button (for development) */}
-          <TouchableOpacity
-            style={styles.testButton}
-            onPress={useTestImage}
-          >
-            <Text style={styles.testButtonText}>TEST</Text>
-          </TouchableOpacity>
+            {/* Main Capture Button - Snapchat Style */}
+            <TouchableOpacity
+              style={[styles.captureButton, isLoading && styles.captureButtonDisabled]}
+              onPress={takePicture}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              <View style={styles.captureButtonInner}>
+                {isLoading ? (
+                  <ActivityIndicator size="large" color={Colors.snapYellow} />
+                ) : (
+                  <View style={styles.captureButtonDot} />
+                )}
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.testButton}
+              onPress={useTestImage}
+              disabled={isLoading}
+            >
+              <Ionicons name="color-wand" size={24} color={Colors.white} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -245,18 +277,19 @@ const styles = StyleSheet.create({
   },
   cameraContainer: {
     flex: 1,
+    position: 'relative',
   },
   cameraPlaceholder: {
     flex: 1,
-    backgroundColor: Colors.darkGray,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: Colors.darkGray,
   },
   placeholderText: {
     color: Colors.white,
     fontSize: 18,
-    marginTop: 20,
     fontWeight: '600',
+    marginTop: 20,
   },
   placeholderSubtext: {
     color: Colors.lightGray,
@@ -272,11 +305,13 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingTop: 20,
   },
   topRightControls: {
     flexDirection: 'row',
+    gap: 15,
   },
   controlButton: {
     width: 44,
@@ -285,53 +320,100 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 10,
   },
   bottomControls: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 120,
-    flexDirection: 'row',
+    paddingBottom: 50,
+  },
+  quickSendContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  quickSendTitle: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  friendsList: {
+    paddingHorizontal: 10,
+  },
+  friendBubble: {
     alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingBottom: 30,
+    marginHorizontal: 8,
+    width: 60,
+  },
+  friendAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.snapYellow,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  friendInitial: {
+    color: Colors.black,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  friendName: {
+    color: Colors.white,
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  captureControls: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   captureButton: {
     width: 80,
     height: 80,
     borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 30,
+    borderWidth: 4,
+    borderColor: Colors.white,
+  },
+  captureButtonInner: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: Colors.white,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  captureButtonInner: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: Colors.snapYellow,
+  captureButtonDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.black,
+  },
+  captureButtonDisabled: {
+    opacity: 0.5,
   },
   galleryButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   testButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: Colors.blue,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  testButtonText: {
-    color: Colors.white,
-    fontSize: 12,
-    fontWeight: 'bold',
   },
   permissionText: {
     color: Colors.white,

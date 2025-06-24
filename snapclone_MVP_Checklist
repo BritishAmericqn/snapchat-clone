@@ -104,26 +104,113 @@ Assumes project created with expo-firebase-starter and `.env` configured.
 - ✅ All messaging functionality now working without errors
 - ✅ DM navigation flow fully functional (Messages → Chat → No errors)
 
-## Phase 5 – Feed, Reactions, Notifications, and Moderation
+## Phase 5 – Feed, Reactions, Notifications, and Moderation ✅
 30. ✅ Create `FeedScreen` for posts/stories from friends/friends-of-friends. [Completed in Phase 3]
 31. ✅ Filter feed content based on visibility and friend status. [Completed in Phase 3]
-32. [ ] Add emoji reactions to posts/stories using `Reaction` model.
-33. [ ] Enable push notifications via Expo or FCM for DMs and friend activity.
-34. [ ] Add mute, block, and report user functionality.
-35. [ ] Reserve `metadata` fields (e.g. `embeddingId`) for future RAG features.
+32. ✅ Add emoji reactions to posts/stories using `Reaction` model.
+33. ⚠️  Enable push notifications via Expo or FCM for DMs and friend activity. [Requires dev build - mock implemented]
+34. ✅ Add mute, block, and report user functionality.
+35. ✅ Reserve `metadata` fields (e.g. `embeddingId`) for future RAG features.
 
-## Key Learnings & Notes:
-- **Expo Go Compatibility**: Must use mock Firebase for testing (real Firebase requires dev build)
-- **Import Consistency**: Always import auth functions from same source as auth object
-- **Mock Limitations**: User data resets on app reload (expected for mock)
-- **Phase 2 Success**: Friend system fully functional with mock Firestore
-- **Navigation Focus**: Use focus listeners to refresh data when returning to screens
-- **Mock Data Structure**: Create realistic test data with interconnected relationships
-- **Phase 3 Success**: Ephemeral posts fully functional with mock storage and Firestore
-- **Image Handling**: Mock storage returns placeholder URLs; real storage will return actual media
-- **Expo Camera Alternative**: expo-image-picker works in Expo Go as camera replacement
-- **Delete-on-View**: Successfully implemented with proper view tracking
-- **Feed Visibility**: Complex filtering respects friend relationships and privacy settings
-- **Phase 4 Success**: Direct messaging fully functional with ephemeral features
-- **React Native Paper**: Must wrap app with PaperProvider for Paper components to work
-- **MVP Core Complete**: All major features implemented and tested successfully
+### Phase 5 Additional Achievements:
+- ✅ Extended mock Firebase with reactions and reports collections
+- ✅ Created comprehensive reactions API (reactions.js)
+- ✅ Built EmojiReactionBar with haptic feedback and optimistic updates
+- ✅ Created EmojiPicker with categories, search, and recent emojis
+- ✅ Integrated emoji reactions into FeedScreen
+- ✅ Created comprehensive moderation API (moderation.js)
+- ✅ Built ModerationMenu with mute, block, and report functionality
+- ✅ Created ReportModal with structured reporting categories
+- ✅ Extended user profiles with moderation arrays and RAG metadata
+- ✅ Implemented friend removal on blocking
+- ✅ Added content filtering based on moderation status
+- ✅ Test suite created and validated all Phase 5 features
+
+### Phase 5 Critical Bug Fixes (Dec 22, 2024):
+- ✅ Fixed ModerationMenu import/export mismatch (default vs named import)
+- ✅ Added all Phase 5 components to components/index.js for consistency
+- ✅ Fixed missing currentUserId and moderationStatus props in UserProfileScreen
+- ✅ Enhanced ModerationMenu to include "Remove Friend" option for friends
+- ✅ Integrated three-dot menu in UserProfileScreen for easy access to moderation
+- ✅ Fixed component props mismatch causing "undefined" render errors
+- ✅ All moderation features now fully functional in user profiles
+
+## Phase 6 – Navigation Redesign & Current Issues
+
+### Phase 6 Implementation (Dec 24, 2024):
+- ✅ Created MainPagerScreen with tab navigation (Expo Go fallback)
+- ✅ Installed native dependencies for future swipe navigation
+- ✅ Replaced HomeScreen as primary navigation entry
+- ✅ Set up foundation for development build features
+
+### Current Known Issues & Incomplete Features:
+
+#### 🐛 **Active Bugs**:
+1. **DM Image Upload** - Images send but show wrong image (placeholder)
+   - Root cause: Mock storage returns random placeholder URLs
+   - Fix needed: Return actual file:// URIs from expo-image-picker
+
+2. **Stories Display** - Circles appear as vertical pills
+   - Root cause: CSS border on wrong container
+   - Fix applied but needs verification
+
+#### ⚠️ **Incomplete Features**:
+3. **Story Viewer** - Not implemented (shows alert)
+   - Need: Full-screen story viewing component
+   - Swipe between stories, auto-advance timer
+
+4. **Snap Map** - Screen exists but non-functional
+   - Need: Location permissions, map integration
+   - Friend location display, privacy controls
+
+5. **Swipe Navigation** - Requires development build
+   - Current: Tab-based navigation in Expo Go
+   - Need: Development build for PagerView gestures
+
+6. **Real Camera** - Using image picker (Expo Go limitation)
+   - Current: expo-image-picker for photos
+   - Need: expo-camera for real-time capture
+
+7. **Push Notifications** - Mock only
+   - Need: FCM integration, development build
+   - Friend requests, messages, snap notifications
+
+#### 🔧 **Technical Debt**:
+8. **Mock Firebase Limitations**
+   - No persistence between reloads
+   - Placeholder images instead of real storage
+   - No Cloud Functions for cleanup
+
+9. **Performance Optimizations Needed**
+   - Image compression before upload
+   - List virtualization for large datasets
+   - Caching strategy for images
+
+10. **Security & Privacy**
+    - Implement proper Firestore rules
+    - Add image moderation
+    - Enforce ephemeral deletion server-side
+
+### Ready for Production Checklist:
+- [ ] Fix DM image display issue
+- [ ] Fix stories circular display
+- [ ] Implement story viewer screen
+- [ ] Create development build
+- [ ] Switch to real Firebase
+- [ ] Add proper camera functionality
+- [ ] Implement push notifications
+- [ ] Add location features
+- [ ] Performance optimization
+- [ ] Security hardening
+
+### Development Priorities:
+1. **Immediate**: Fix image display bugs
+2. **Short-term**: Implement story viewer
+3. **Medium-term**: Create development build
+4. **Long-term**: Production deployment
+
+---
+
+*Last Updated: December 24, 2024*
+*MVP Feature Complete with Known Issues*
+*Next Focus: Bug Fixes and Polish*

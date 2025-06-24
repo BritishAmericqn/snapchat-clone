@@ -1,0 +1,230 @@
+import React, { useState, useEffect, useContext } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  Dimensions,
+  StatusBar,
+  Alert,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { AuthenticatedUserContext } from '../providers';
+import { Colors } from '../config';
+import { getFeedPosts, getUserProfile } from '../api';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+export const StoriesScreen = ({ navigation }) => {
+  const { user } = useContext(AuthenticatedUserContext);
+  const [stories, setStories] = useState([]);
+  const [userProfiles, setUserProfiles] = useState({});
+
+  useEffect(() => {
+    loadStories();
+  }, []);
+
+  const loadStories = async () => {
+    try {
+      const userProfile = await getUserProfile(user.uid);
+      const friendIds = userProfile?.friendIds || [];
+      
+      // Get recent posts as "stories"
+      const feedPosts = await getFeedPosts(user.uid, friendIds);
+      
+      // Group posts by author to create story format
+      const groupedStories = {};
+      feedPosts.forEach(post => {
+        if (!groupedStories[post.authorUid]) {
+          groupedStories[post.authorUid] = [];
+        }
+        groupedStories[post.authorUid].push(post);
+      });
+
+      const storyList = Object.keys(groupedStories).map(authorId => ({
+        authorId,
+        posts: groupedStories[authorId],
+        hasViewed: groupedStories[authorId].every(post => 
+          post.viewedBy?.includes(user.uid)
+        ),
+      }));
+
+      setStories(storyList);
+      
+      // Load author profiles
+      const profiles = {};
+      for (const authorId of Object.keys(groupedStories)) {
+        const profile = await getUserProfile(authorId);
+        if (profile) {
+          profiles[authorId] = profile;
+        }
+      }
+      setUserProfiles(profiles);
+    } catch (error) {
+      console.error('[StoriesScreen] Error loading stories:', error);
+    }
+  };
+
+  const renderStoryBubble = ({ item }) => {
+    const author = userProfiles[item.authorId] || {};
+    const isOwnStory = item.authorId === user.uid;
+    
+    return (
+      <TouchableOpacity
+        style={styles.storyBubble}
+        onPress={() => openStoryViewer(item)}
+      >
+        <View style={[
+          styles.storyImageContainer,
+          item.hasViewed ? styles.viewedBubble : styles.unviewedBubble,
+        ]}>
+          <Image
+            source={{ uri: item.posts[0]?.mediaUrl }}
+            style={styles.storyImage}
+          />
+          {isOwnStory && (
+            <View style={styles.addStoryButton}>
+              <Ionicons name="add" size={20} color={Colors.white} />
+            </View>
+          )}
+        </View>
+        <Text style={styles.storyUsername} numberOfLines={1}>
+          {isOwnStory ? 'Your Story' : (author.username || 'Unknown')}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const openStoryViewer = (story) => {
+    // Navigate to StoryViewer with all stories starting from the selected one
+    const storyIndex = stories.findIndex(s => s.authorId === story.authorId);
+    
+    navigation.navigate('StoryViewer', {
+      stories: stories,
+      initialIndex: storyIndex,
+      userProfiles: userProfiles,
+    });
+  };
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Stories</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Camera')}>
+          <Ionicons name="camera" size={24} color={Colors.white} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Stories List */}
+      <FlatList
+        data={stories}
+        renderItem={renderStoryBubble}
+        keyExtractor={(item) => item.authorId}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.storiesContainer}
+      />
+
+      {/* Discover Section Placeholder */}
+      <View style={styles.discoverSection}>
+        <Text style={styles.sectionTitle}>Discover</Text>
+        <Text style={styles.comingSoon}>Coming Soon...</Text>
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.black,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 50,
+    paddingBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: Colors.white,
+  },
+  storiesContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+  },
+  storyBubble: {
+    alignItems: 'center',
+    marginRight: 12,
+    width: 70,
+  },
+  storyImageContainer: {
+    position: 'relative',
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  storyImage: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+  },
+  unviewedBubble: {
+    borderWidth: 3,
+    borderColor: Colors.primary,
+    padding: 0,
+  },
+  viewedBubble: {
+    borderWidth: 2,
+    borderColor: Colors.gray,
+    padding: 0,
+  },
+  addStoryButton: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: Colors.snapYellow,
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.black,
+  },
+  storyUsername: {
+    color: Colors.white,
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  discoverSection: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Colors.white,
+    marginBottom: 10,
+  },
+  comingSoon: {
+    fontSize: 16,
+    color: Colors.gray,
+  },
+});
+
+export default StoriesScreen; 

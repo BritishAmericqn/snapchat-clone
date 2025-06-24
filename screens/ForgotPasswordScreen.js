@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { StyleSheet, Text } from "react-native";
 import { Formik } from "formik";
-import { sendPasswordResetEmail } from "firebase/auth";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { sendPasswordResetEmail } from "../config/firebase-mock";
 
 import { passwordResetSchema } from "../utils";
 import { Colors, auth } from "../config";
@@ -10,15 +11,18 @@ import { View, TextInput, Button, FormErrorMessage } from "../components";
 export const ForgotPasswordScreen = ({ navigation }) => {
   const [errorState, setErrorState] = useState("");
 
-  const handleSendPasswordResetEmail = (values) => {
+  const handleSendPasswordResetEmail = async (values) => {
     const { email } = values;
 
-    sendPasswordResetEmail(auth, email)
-      .then(() => {
-        console.log("Success: Password Reset Email sent.");
-        navigation.navigate("Login");
-      })
-      .catch((error) => setErrorState(error.message));
+    try {
+      setErrorState(""); // Clear any previous errors
+      await sendPasswordResetEmail(auth, email);
+      console.log("Success: Password Reset Email sent.");
+      navigation.navigate("Login");
+    } catch (error) {
+      console.error("Password reset error:", error);
+      setErrorState(error.message);
+    }
   };
 
   return (
@@ -95,13 +99,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 8,
-    backgroundColor: Colors.orange,
+    backgroundColor: Colors.snapYellow,
     padding: 10,
     borderRadius: 8,
   },
   buttonText: {
     fontSize: 20,
-    color: Colors.white,
+    color: Colors.black,
     fontWeight: "700",
   },
   borderlessButtonContainer: {

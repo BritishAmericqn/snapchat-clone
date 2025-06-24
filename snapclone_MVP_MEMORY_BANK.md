@@ -6,6 +6,7 @@ This document serves as a central knowledge repository for implementation detail
 
 ## 📋 Table of Contents
 - [Phase 0: Development Setup](#phase-0-development-setup)
+- [Phase 1: Authentication & User Profiles](#phase-1-authentication--user-profiles)
 - [Technical Stack Decisions](#technical-stack-decisions)
 - [Known Issues & Workarounds](#known-issues--workarounds)
 - [Architecture Decisions](#architecture-decisions)
@@ -89,6 +90,110 @@ Required .env variables:
 
 ---
 
+## Phase 1: Authentication & User Profiles
+
+### Completed Date: December 19, 2024
+
+### What Was Done:
+1. **Mock Firebase Implementation**
+   - Created `config/firebase-mock.js` to enable testing in Expo Go
+   - Implemented all auth functions: signIn, signUp, signOut, passwordReset
+   - Added auth state listener management
+   - Stores users in memory (resets on app reload)
+
+2. **Brand Update**
+   - Updated theme colors to include Snapchat yellow (#FFFC00)
+   - Changed all buttons to yellow with black text
+   - Updated screen titles to match Snapchat branding
+
+3. **New Screens Created**
+   - **ProfileScreen**: Editable username, display name, bio, profile image placeholder
+   - **PrivacySettingsScreen**: Who can message/view stories, location, activity status
+   - **Enhanced HomeScreen**: Tab navigation, quick actions, bottom nav placeholder
+
+4. **Navigation Setup**
+   - Added Profile and PrivacySettings to AppStack
+   - All screens properly connected and navigable
+
+### Critical Bug & Fix:
+
+#### 🚨 THE FIREBASE IMPORT PITFALL 🚨
+
+**Error Encountered**: `authInstance._getRecaptchaConfig is not a function (it is undefined)`
+
+**Root Cause**: Mixed imports between real Firebase and mock Firebase
+```javascript
+// ❌ WRONG - This was the bug!
+import { signInWithEmailAndPassword } from "firebase/auth";  // Real Firebase
+import { auth } from "../config";  // Mock auth object
+
+// Even though we pass mock auth, the function is from real Firebase!
+await signInWithEmailAndPassword(auth, email, password);  // BREAKS!
+```
+
+**The Fix**:
+```javascript
+// ✅ CORRECT - Import everything from mock
+import { signInWithEmailAndPassword } from "../config/firebase-mock";
+import { auth } from "../config";
+
+// Now both the function AND auth object are mocked
+await signInWithEmailAndPassword(auth, email, password);  // WORKS!
+```
+
+**Files That Needed Fixing**:
+1. `screens/LoginScreen.js` - signInWithEmailAndPassword
+2. `screens/SignupScreen.js` - createUserWithEmailAndPassword  
+3. `screens/ForgotPasswordScreen.js` - sendPasswordResetEmail
+4. `screens/HomeScreen.js` - signOut
+5. `navigation/RootNavigator.js` - onAuthStateChanged
+
+**Lesson Learned**: When mocking Firebase, you must mock BOTH:
+- The auth object/instance
+- ALL the functions that use it
+
+### How to Avoid This Pitfall:
+
+1. **Always Check Imports First**: When getting Firebase errors in Expo Go, immediately check if you're importing from real Firebase
+2. **Use Find & Replace**: Search for `from "firebase/` to find all real Firebase imports
+3. **Consistent Import Pattern**: 
+   ```javascript
+   // For Expo Go (mock):
+   import { auth, signInWithEmailAndPassword, ... } from "../config/firebase-mock";
+   
+   // For Development Build (real):
+   import { auth } from "../config/firebase";
+   import { signInWithEmailAndPassword, ... } from "firebase/auth";
+   ```
+
+4. **Test After Every Import Change**: Firebase errors can be cryptic - test immediately after changing imports
+
+### Mock Firebase Capabilities:
+- ✅ Creates users and stores in memory
+- ✅ Validates login with stored credentials  
+- ✅ Manages auth state and notifies listeners
+- ✅ Password reset (mock - just logs)
+- ✅ Sign out functionality
+- ❌ Does NOT persist between app reloads
+- ❌ Does NOT connect to real Firebase
+
+### Switching Between Mock and Real Firebase:
+
+In `config/index.js`:
+```javascript
+// For Expo Go (Phase 0 & 1):
+import { auth, db, storage } from "./firebase-mock";
+// import { auth, db, storage } from "./firebase";
+
+// For Development Build (Phase 2+):
+// import { auth, db, storage } from "./firebase-mock";
+import { auth, db, storage } from "./firebase";
+```
+
+**Important**: When switching, you must also update ALL screen imports!
+
+---
+
 ## Technical Stack Decisions
 
 ### Core Technologies:
@@ -145,6 +250,11 @@ Required .env variables:
 - **Next**: Add to App.js and create tailwind.config.js
 - **Reference**: Check NativeWind v4 docs for setup
 
+### 5. Expo Go Limitations
+- **Cannot use**: Real Firebase Auth, Camera, Push Notifications
+- **Workaround**: Mock implementations for testing
+- **Solution**: Development build for real features
+
 ---
 
 ## Architecture Decisions
@@ -173,6 +283,11 @@ export const createUserProfile = async (uid, data) => {
 - **Using starter components**: Button, TextInput, View, etc.
 - **Why**: Consistent styling, accessibility built-in
 - **Plan**: Extend with Snapchat-specific components
+
+### 5. Mock vs Real Firebase Architecture
+- **Mock**: Pure JavaScript, works in Expo Go
+- **Real**: Requires native modules, needs dev build
+- **Switch**: Single point of change in config/index.js
 
 ---
 
@@ -262,6 +377,12 @@ export const createUserProfile = async (uid, data) => {
    - **Fix**: `npx expo install --check` + manual accept
    - **Result**: All dependencies now compatible
 
+4. **Firebase Import Error**
+   - **Issue**: `authInstance._getRecaptchaConfig is not a function`
+   - **Root Cause**: Importing real Firebase functions with mock auth
+   - **Fix**: Changed all imports to use firebase-mock
+   - **Files Fixed**: Login, Signup, ForgotPassword, Home screens + RootNavigator
+
 ---
 
 ## Development Tips
@@ -285,15 +406,21 @@ export const createUserProfile = async (uid, data) => {
    - Use Flipper for advanced debugging
    - Monitor bundle size with Metro
 
+5. **Common Pitfalls to Avoid**
+   - Don't mix real and mock Firebase imports
+   - Always test in Expo Go before assuming native features work
+   - Check imports first when debugging Firebase errors
+   - Remember mock data resets on app reload
+
 ---
 
 ## Next Steps Checklist
 
-### Immediate (Phase 1 Start):
+### Immediate (Phase 2 Start):
 - [ ] Create Firestore user creation logic
-- [ ] Design ProfileScreen UI
-- [ ] Implement Zustand store
-- [ ] Add image upload to Firebase Storage
+- [ ] Implement friend request system
+- [ ] Build user search functionality
+- [ ] Add mutual friends display
 
 ### Soon:
 - [ ] Configure NativeWind properly
@@ -310,4 +437,494 @@ export const createUserProfile = async (uid, data) => {
 ---
 
 *Last Updated: December 19, 2024*
-*Next Review: After Phase 1 completion*
+*Next Review: After Phase 2 completion*
+
+---
+
+## Phase 2: Friends & Social Graph
+
+### Completed Date: December 19, 2024
+
+### What Was Done:
+
+1. **Extended Mock Firebase with Firestore**
+   - Implemented full mock Firestore with collections, documents, queries, and listeners
+   - Added real-time update notifications for collections and documents
+   - Supports where queries, CRUD operations, and onSnapshot listeners
+   - Automatically creates user profiles in Firestore during signup
+
+2. **Created API Layer**
+   - `/api/users.js`: User profile management, search, friend list operations
+   - `/api/friends.js`: Friend request system, suggestions algorithm
+   - Clean separation of concerns from UI components
+
+3. **New Screens Created**
+   - **SearchUsersScreen**: Real-time user search with friend status indicators
+   - **FriendRequestsScreen**: Tabbed view for received/sent requests
+   - **FriendSuggestionsScreen**: Smart suggestions based on mutual friends
+
+4. **Enhanced Existing Screens**
+   - **HomeScreen**: Added friend feature navigation, pending request badge
+   - **ProfileScreen**: Shows friend count, quick actions for friend features
+
+### Technical Implementation Details:
+
+1. **Mock Firestore Architecture**
+   ```javascript
+   // Data storage structure
+   mockFirestoreData = {
+     users: { [uid]: userData },
+     friendRequests: { [requestId]: requestData }
+   }
+   
+   // Listener management
+   firestoreListeners = {
+     collections: { [path]: listeners[] },
+     documents: { [path]: listeners[] }
+   }
+   ```
+
+2. **Friend Request Flow**
+   - Prevents duplicate requests in both directions
+   - Updates both users' friend lists on acceptance
+   - Proper authorization checks (only recipient can accept/reject)
+   - Status tracking: pending, accepted, rejected
+
+3. **Search Implementation**
+   - Case-insensitive search on username and displayName
+   - Excludes current user from results
+   - Shows friend status for each result
+   - Debounced to prevent excessive queries
+
+4. **Friend Suggestions Algorithm**
+   - Calculates mutual friends for scoring
+   - Excludes existing friends and pending requests
+   - Falls back to random users if no friends yet
+   - Sorts by mutual friend count
+
+### Key Features Implemented:
+
+1. **Real-time Updates**
+   - Search results update as users change profiles
+   - Friend requests appear instantly
+   - Friend counts update automatically
+
+2. **User Experience**
+   - Loading states and empty states for all screens
+   - Pull-to-refresh on all list views
+   - Error handling with user-friendly messages
+   - Optimistic UI updates for better perceived performance
+
+3. **Navigation Integration**
+   - Header icons in HomeScreen for quick access
+   - Badge shows pending friend request count
+   - Consistent navigation flow between screens
+
+### Mock Firestore Capabilities:
+- ✅ Collections and documents
+- ✅ CRUD operations (create, read, update, delete)
+- ✅ Where queries with multiple operators
+- ✅ Real-time listeners (onSnapshot)
+- ✅ Automatic listener notifications on data changes
+- ✅ Nested object updates with dot notation
+- ❌ Compound queries (would need composite indexes)
+- ❌ Transactions (simplified implementation)
+- ❌ Offline persistence (data resets on reload)
+
+### API Functions Created:
+
+**User Management:**
+- `createUserProfile(uid, userData)`
+- `getUserProfile(uid)`
+- `updateUserProfile(uid, updates)`
+- `searchUsers(query, currentUserId)`
+- `getUsersByIds(userIds)`
+- `addFriend(userId, friendId)`
+- `removeFriend(userId, friendId)`
+
+**Friend Requests:**
+- `sendFriendRequest(fromUid, toUid)`
+- `acceptFriendRequest(requestId, currentUserId)`
+- `rejectFriendRequest(requestId, currentUserId)`
+- `cancelFriendRequest(requestId, currentUserId)`
+- `getPendingFriendRequests(userId)`
+- `getSentFriendRequests(userId)`
+- `checkFriendStatus(userId1, userId2)`
+- `getFriendSuggestions(userId, limit)`
+
+### Testing Approach:
+
+Created `test-friend-features.js` with comprehensive tests:
+1. User search functionality
+2. Friend request sending
+3. Pending request retrieval
+4. Friend status checking
+5. Request acceptance flow
+6. Friend suggestions
+
+### Known Limitations:
+
+1. **Mock Data Persistence**
+   - All data resets on app reload
+   - No real database connection
+   - Limited to in-memory storage
+
+2. **Search Limitations**
+   - No full-text search (using includes())
+   - Case-insensitive requires client-side filtering
+   - No pagination implemented
+
+3. **Performance Considerations**
+   - All operations are synchronous in mock
+   - No query optimization
+   - Loading all documents for searches
+
+### Migration Path to Real Firebase:
+
+1. **Minimal Code Changes Required**
+   - Switch imports in `config/index.js`
+   - Update search to use Firestore composite indexes
+   - Add proper error handling for network issues
+
+2. **Data Model Ready**
+   - User profiles with friendIds array
+   - FriendRequest collection structure
+   - All fields match PRD specifications
+
+3. **Security Rules Needed**
+   ```javascript
+   // Users can only edit their own profile
+   match /users/{userId} {
+     allow read: if request.auth != null;
+     allow write: if request.auth.uid == userId;
+   }
+   
+   // Friend requests have specific permissions
+   match /friendRequests/{requestId} {
+     allow read: if request.auth.uid == resource.data.fromUid 
+                 || request.auth.uid == resource.data.toUid;
+     allow create: if request.auth.uid == request.resource.data.fromUid;
+     allow update: if request.auth.uid == resource.data.toUid;
+     allow delete: if request.auth.uid == resource.data.fromUid;
+   }
+   ```
+
+### UI/UX Decisions:
+
+1. **Color Scheme**
+   - Snapchat yellow for primary actions
+   - Gray for secondary/disabled states
+   - Red for destructive actions
+   - Blue for links and informational text
+
+2. **Component Patterns**
+   - Consistent list item design across screens
+   - Avatar + title + description + action pattern
+   - Empty states with helpful instructions
+   - Loading states prevent interaction
+
+3. **Navigation Flow**
+   - Quick access from home screen
+   - Deep linking to user profiles
+   - Back navigation preserves state
+
+### Next Steps for Phase 3:
+
+1. **Before Starting Phase 3**
+   - Consider switching to real Firebase
+   - Implement proper image upload for profiles
+   - Add push notifications for friend requests
+
+2. **Performance Optimizations**
+   - Implement pagination for user lists
+   - Cache friend data locally
+   - Optimize re-renders with React.memo
+
+3. **Additional Features**
+   - Block/unblock users
+   - Friend request expiration
+   - Mutual friend details on profiles
+
+### Lessons Learned:
+
+1. **Mock Implementation Benefits**
+   - Rapid prototyping without backend setup
+   - Easy testing of edge cases
+   - Clear understanding of data flow
+
+2. **Component Architecture**
+   - Separating API logic paid off
+   - Consistent error handling patterns help
+   - Loading states are crucial for UX
+
+3. **Real-time Updates**
+   - Listeners simplify state management
+   - Automatic updates improve user experience
+   - Memory cleanup (unsubscribe) is important
+
+---
+
+*Last Updated: December 19, 2024*
+*Phase 2 Completed Successfully*
+
+---
+
+## Phase 2: Bug Fixes & Polish
+
+### Session Date: December 19, 2024 (Evening)
+
+### Critical Issues Fixed:
+
+#### 1. Mock Firestore Chained Where Clauses
+**The Problem**: 
+```javascript
+// This was BREAKING:
+db.collection('friendRequests')
+  .where('toUid', '==', userId)
+  .where('status', '==', 'pending')
+  .get();
+```
+
+**Error**: `TypeError: _config.db.collection('friendReq(...)ere('toUid', '==', userId).where is not a function`
+
+**Root Cause**: Mock Firestore's `where()` method was returning a simple object that didn't support chaining multiple where clauses.
+
+**The Fix**: Modified `firebase-mock.js` to return a query object that tracks multiple conditions:
+```javascript
+where: (field, operator, value) => {
+  const query = {
+    _conditions: [{ field, operator, value }],
+    
+    where: function(field2, operator2, value2) {
+      this._conditions.push({ field: field2, operator: operator2, value: value2 });
+      return this; // Enable chaining
+    },
+    
+    get: function() {
+      // Filter using ALL conditions
+      return this._conditions.every(condition => {
+        // Check each condition
+      });
+    }
+  };
+  return query;
+}
+```
+
+**Lesson**: When mocking Firebase, consider ALL query patterns your app uses, not just simple ones.
+
+#### 2. Friend Request Badge Not Updating
+**The Problem**: Friend request count badge showed "5" even after accepting/rejecting all requests.
+
+**Root Cause**: `HomeScreen` only loaded the count once on mount - no refresh when returning from other screens.
+
+**The Fix**: Added navigation focus listener:
+```javascript
+useEffect(() => {
+  const unsubscribe = navigation.addListener('focus', () => {
+    loadPendingRequestsCount();
+  });
+  return unsubscribe;
+}, [navigation, user.uid]);
+```
+
+**Why This Matters**: React Navigation doesn't re-mount screens when navigating back - they stay mounted in the stack. Without focus listeners, data becomes stale.
+
+**Additional Safety**: Added null check for user:
+```javascript
+const loadPendingRequestsCount = async () => {
+  if (!user?.uid) return; // Prevent crashes
+  // ... rest of function
+};
+```
+
+### Technical Decisions & Rationale:
+
+#### 1. Mock Data Structure
+**Decision**: Created 10 interconnected users with existing friendships
+
+**Why**: 
+- Testing friend suggestions requires users with mutual connections
+- Empty friend lists make suggestion algorithm testing impossible
+- Realistic data reveals UI/UX issues early
+
+**Implementation Details**:
+```javascript
+// Each user has different friend counts (0-3)
+// Some users are connected, creating mutual friend scenarios
+// Different bio styles show text truncation handling
+'user_john': {
+  friendIds: ['user_sarah', 'user_mike', 'user_emma'], // 3 friends
+  bio: '📸 Photography enthusiast | 🌍 Travel lover', // Emoji test
+}
+```
+
+#### 2. Pre-populated Friend Requests
+**Decision**: Added 5 pending requests to test user
+
+**Why**:
+- Tests accept/reject flow without manual setup
+- Different timestamps test time display
+- Ensures badge count functionality works
+
+**Pattern Used**:
+```javascript
+'request_mike_to_test': {
+  fromUid: 'user_mike',
+  toUid: '12345', // test user
+  status: 'pending',
+  createdAt: new Date(Date.now() - 86400000), // 1 day ago
+}
+```
+
+#### 3. Alert Placeholders for Future Features
+**Decision**: Show informative alerts for Snap/Messages instead of console.log
+
+**Why**:
+- Better user experience during testing
+- Sets expectations for future phases
+- Prevents "broken feature" perception
+
+### Pitfalls Avoided (But Easy to Fall Into):
+
+1. **useEffect Dependency Arrays**
+   - Always include ALL dependencies (we added `user.uid`)
+   - Missing dependencies = stale closures = bugs
+   - ESLint helps but doesn't catch everything
+
+2. **Navigation State Management**
+   - Screens stay mounted in stack navigators
+   - Data doesn't refresh automatically on "back"
+   - Always use focus listeners for data that changes
+
+3. **Mock Firebase Query Limitations**
+   - Real Firestore supports complex queries automatically
+   - Mock needs explicit implementation for each pattern
+   - Test your mock with actual app queries before assuming it works
+
+4. **Async State Updates**
+   - Setting state after async operations needs mounted checks
+   - Navigation can unmount components during operations
+   - Always clean up listeners and check mounting status
+
+### Testing Insights:
+
+1. **Mock Data Best Practices**
+   - Use realistic names and data
+   - Include edge cases (empty bios, no friends)
+   - Test data should tell a story (interconnected users)
+
+2. **State Synchronization**
+   - Multiple screens showing same data need coordination
+   - Badge counts, friend counts, request lists must stay in sync
+   - Consider global state for frequently accessed data
+
+3. **User Credentials**
+   - Keep test credentials simple and documented
+   - Pattern: `{name}@example.com` / `{name}123`
+   - Changed from `password123` to `test123` for consistency
+
+### Performance Considerations Discovered:
+
+1. **Listener Cleanup**
+   - Navigation listeners must be unsubscribed
+   - Memory leaks from uncleaned listeners accumulate
+   - Always return cleanup function from useEffect
+
+2. **Unnecessary Re-renders**
+   - Focus listener fires even when data hasn't changed
+   - Consider memoization for expensive operations
+   - Track if data actually changed before re-rendering
+
+### Future-Proofing Decisions:
+
+1. **API Layer Abstraction**
+   - All Firebase calls go through API layer
+   - Switching to real Firebase requires minimal changes
+   - Mock and real implementations have same interface
+
+2. **Error Boundaries**
+   - Added try-catch blocks around all async operations
+   - User-friendly error messages vs technical errors
+   - Console errors for debugging, alerts for users
+
+3. **Scalability Considerations**
+   - Current mock loads all users at once
+   - Real app would need pagination
+   - Structure supports adding pagination later
+
+### Code Smells to Watch For:
+
+1. **Inline Magic Numbers**
+   ```javascript
+   // Bad: What does 86400000 mean?
+   new Date(Date.now() - 86400000)
+   
+   // Better: Self-documenting
+   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+   new Date(Date.now() - ONE_DAY_MS)
+   ```
+
+2. **Inconsistent Error Handling**
+   - Some functions alert users, others only console.error
+   - Establish consistent error handling patterns
+   - User-facing vs developer-facing errors
+
+3. **State Update Patterns**
+   ```javascript
+   // Good: Functional updates for derived state
+   setReceivedRequests(prev => prev.filter(req => req.id !== requestId));
+   
+   // Avoid: Direct state mutations
+   receivedRequests.filter(...) // NO!
+   ```
+
+### Mock Firebase Gotchas:
+
+1. **Data Persistence**
+   - Mock data resets on every app reload
+   - Good for testing, confusing for new developers
+   - Document this limitation prominently
+
+2. **Synchronous vs Asynchronous**
+   - Mock operations are instant
+   - Real Firebase has network latency
+   - Consider adding artificial delays for realistic testing
+
+3. **Missing Firebase Features**
+   - No real-time sync between devices
+   - No offline persistence
+   - No security rules validation
+   - No composite indexes
+
+### Navigation Patterns Learned:
+
+1. **Screen Communication**
+   - Params: One-time data pass
+   - Focus listeners: Refresh on return
+   - Context/Global state: Shared data
+   - Choose based on data freshness needs
+
+2. **Header Customization**
+   - `useLayoutEffect` for header changes
+   - Prevents flicker on mount
+   - Dependencies must include all dynamic values
+
+3. **Deep Linking Preparation**
+   - Screen names should be URL-friendly
+   - Params should be serializable
+   - Consider future deep link structure
+
+### Summary of Key Learnings:
+
+1. **Test with Realistic Data**: Empty databases hide issues
+2. **Plan for State Synchronization**: Multiple screens need coordination
+3. **Mock Completely**: Partial mocks cause confusing errors
+4. **Use Navigation Events**: Don't assume screens refresh
+5. **Handle Edge Cases**: Null users, empty lists, network errors
+6. **Document Decisions**: Future you will thank current you
+
+---
+
+*Next Session Goals: Begin Phase 3 - Camera Integration*
+*Remember: Camera requires development build, plan accordingly*

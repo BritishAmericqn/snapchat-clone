@@ -19,6 +19,10 @@ export default {
     assetBundlePatterns: ["**/*"],
     ios: {
       supportsTablet: true,
+      bundleIdentifier: "com.snapchatclone.app"
+    },
+    android: {
+      package: "com.snapchatclone.app"
     },
     extra: {
       apiKey: process.env.API_KEY,

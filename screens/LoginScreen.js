@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Text, StyleSheet } from "react-native";
 import { Formik } from "formik";
-import { signInWithEmailAndPassword } from "firebase/auth";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { signInWithEmailAndPassword } from "../config/firebase-mock";
 
 import { View, TextInput, Logo, Button, FormErrorMessage } from "../components";
 import { Images, Colors, auth } from "../config";
@@ -14,11 +14,22 @@ export const LoginScreen = ({ navigation }) => {
   const { passwordVisibility, handlePasswordVisibility, rightIcon } =
     useTogglePasswordVisibility();
 
-  const handleLogin = (values) => {
+  const handleLogin = async (values) => {
+    console.log("[LoginScreen] handleLogin called with values:", values);
     const { email, password } = values;
-    signInWithEmailAndPassword(auth, email, password).catch((error) =>
-      setErrorState(error.message)
-    );
+    
+    try {
+      console.log("[LoginScreen] Attempting login with:", email);
+      setErrorState(""); // Clear any previous errors
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      console.log("[LoginScreen] Login result:", result);
+      console.log("Login successful!");
+      // Navigation will happen automatically via onAuthStateChanged
+    } catch (error) {
+      console.error("[LoginScreen] Login error caught:", error);
+      console.error("Login error:", error);
+      setErrorState(error.message);
+    }
   };
   return (
     <>
@@ -27,7 +38,7 @@ export const LoginScreen = ({ navigation }) => {
           {/* LogoContainer: consist app logo and screen title */}
           <View style={styles.logoContainer}>
             <Logo uri={Images.logo} />
-            <Text style={styles.screenTitle}>Welcome back!</Text>
+            <Text style={styles.screenTitle}>Snapchat Clone</Text>
           </View>
           <Formik
             initialValues={{
@@ -87,7 +98,7 @@ export const LoginScreen = ({ navigation }) => {
                 ) : null}
                 {/* Login button */}
                 <Button style={styles.button} onPress={handleSubmit}>
-                  <Text style={styles.buttonText}>Login</Text>
+                  <Text style={styles.buttonText}>Log In</Text>
                 </Button>
               </>
             )}
@@ -110,7 +121,7 @@ export const LoginScreen = ({ navigation }) => {
 
       {/* App info footer */}
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Expo Firebase Starter App</Text>
+        <Text style={styles.footerText}>Snapchat Clone MVP</Text>
       </View>
     </>
   );
@@ -140,20 +151,20 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 14,
     fontWeight: "700",
-    color: Colors.orange,
+    color: Colors.black,
   },
   button: {
     width: "100%",
     justifyContent: "center",
     alignItems: "center",
     marginTop: 8,
-    backgroundColor: Colors.orange,
+    backgroundColor: Colors.snapYellow,
     padding: 10,
     borderRadius: 8,
   },
   buttonText: {
     fontSize: 20,
-    color: Colors.white,
+    color: Colors.black,
     fontWeight: "700",
   },
   borderlessButtonContainer: {

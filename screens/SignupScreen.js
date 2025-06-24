@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Text, StyleSheet } from "react-native";
 import { Formik } from "formik";
-import { createUserWithEmailAndPassword } from "firebase/auth";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { createUserWithEmailAndPassword } from "../config/firebase-mock";
 
 import { View, TextInput, Logo, Button, FormErrorMessage } from "../components";
 import { Images, Colors, auth } from "../config";
@@ -23,10 +23,16 @@ export const SignupScreen = ({ navigation }) => {
 
   const handleSignup = async (values) => {
     const { email, password } = values;
-
-    createUserWithEmailAndPassword(auth, email, password).catch((error) =>
-      setErrorState(error.message)
-    );
+    
+    try {
+      setErrorState(""); // Clear any previous errors
+      await createUserWithEmailAndPassword(auth, email, password);
+      console.log("Signup successful!");
+      // Navigation will happen automatically via onAuthStateChanged
+    } catch (error) {
+      console.error("Signup error:", error);
+      setErrorState(error.message);
+    }
   };
 
   return (
@@ -35,7 +41,7 @@ export const SignupScreen = ({ navigation }) => {
         {/* LogoContainer: consist app logo and screen title */}
         <View style={styles.logoContainer}>
           <Logo uri={Images.logo} />
-          <Text style={styles.screenTitle}>Create a new account!</Text>
+          <Text style={styles.screenTitle}>Join Snapchat</Text>
         </View>
         {/* Formik Wrapper */}
         <Formik
@@ -112,7 +118,7 @@ export const SignupScreen = ({ navigation }) => {
               ) : null}
               {/* Signup button */}
               <Button style={styles.button} onPress={handleSubmit}>
-                <Text style={styles.buttonText}>Signup</Text>
+                <Text style={styles.buttonText}>Sign Up</Text>
               </Button>
             </>
           )}
@@ -149,13 +155,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 8,
-    backgroundColor: Colors.orange,
+    backgroundColor: Colors.snapYellow,
     padding: 10,
     borderRadius: 8,
   },
   buttonText: {
     fontSize: 20,
-    color: Colors.white,
+    color: Colors.black,
     fontWeight: "700",
   },
   borderlessButtonContainer: {

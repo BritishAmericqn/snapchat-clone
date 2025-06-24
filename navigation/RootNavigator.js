@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "../config/firebase-mock";
 
 import { AuthStack } from "./AuthStack";
 import { AppStack } from "./AppStack";
@@ -13,10 +13,14 @@ export const RootNavigator = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // onAuthStateChanged returns an unsubscriber
+    console.log("[RootNavigator] Setting up auth listener");
+    console.log("[RootNavigator] Current auth object:", auth);
+    
+    // Using mock Firebase for testing
     const unsubscribeAuthStateChanged = onAuthStateChanged(
       auth,
       (authenticatedUser) => {
+        console.log("[RootNavigator] Auth state changed, user:", authenticatedUser);
         authenticatedUser ? setUser(authenticatedUser) : setUser(null);
         setIsLoading(false);
       }
@@ -24,7 +28,9 @@ export const RootNavigator = () => {
 
     // unsubscribe auth listener on unmount
     return unsubscribeAuthStateChanged;
-  }, [user]);
+  }, [user, setUser]);
+
+  console.log("[RootNavigator] Render - isLoading:", isLoading, "user:", user);
 
   if (isLoading) {
     return <LoadingIndicator />;

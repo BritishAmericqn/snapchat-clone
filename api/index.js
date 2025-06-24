@@ -10,7 +10,7 @@ export {
   getUsersByIds,
   addFriend,
   removeFriend,
-} from './users';
+} from './users.js';
 
 // Friend API exports
 export {
@@ -22,7 +22,7 @@ export {
   getSentFriendRequests,
   checkFriendStatus,
   getFriendSuggestions,
-} from './friends';
+} from './friends.js';
 
 // Posts API exports
 export {
@@ -32,7 +32,7 @@ export {
   deletePost,
   getUserPosts,
   cleanupExpiredPosts,
-} from './posts';
+} from './posts.js';
 
 // Messages API
 export {
@@ -49,4 +49,28 @@ export {
   processMessageQueue,
   getQueueStatus,
   clearMessageQueue
-} from './messages'; 
+} from './messages.js';
+
+// Reactions API - Phase 5
+export {
+  addReactionToPost,
+  removeReactionFromPost,
+  getPostReactions,
+  getUserReactionToPost,
+  toggleReaction,
+  getBulkReactionCounts
+} from './reactions.js';
+
+// Moderation API - Phase 5
+export {
+  muteUser,
+  unmuteUser,
+  blockUser,
+  unblockUser,
+  reportUser,
+  getModerationStatus,
+  getReports,
+  updateReportStatus,
+  canUsersInteract,
+  filterModerationContent
+} from './moderation.js'; 

@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthenticatedUserContext } from '../providers';
 import { Colors } from '../config';
 import { getFeedPosts, viewPost, getUserProfile } from '../api';
+import EmojiReactionBar from '../components/EmojiReactionBar';
 
 export const FeedScreen = ({ navigation }) => {
   const { user } = useContext(AuthenticatedUserContext);
@@ -170,6 +171,19 @@ export const FeedScreen = ({ navigation }) => {
             <Text style={styles.caption}>{item.caption}</Text>
           </View>
         ) : null}
+
+        {/* Emoji Reactions */}
+        <View style={styles.reactionsContainer}>
+          <EmojiReactionBar
+            targetId={item.id}
+            targetType="post"
+            currentUserId={user.uid}
+            onReactionChange={(result) => {
+              console.log('[FeedScreen] Reaction changed:', result);
+              // Optionally trigger feed refresh or update local state
+            }}
+          />
+        </View>
 
         {/* Post Info */}
         <View style={styles.postFooter}>
@@ -347,6 +361,10 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 15,
     lineHeight: 20,
+  },
+  reactionsContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   postFooter: {
     flexDirection: 'row',

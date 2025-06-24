@@ -29,7 +29,17 @@ const mockFirestoreData = {
       bio: 'This is a test account',
       profilePhotoUrl: '',
       friendIds: ['user_sarah', 'user_mike', 'user_emma', 'user_john'],  // Added friends to see their posts
+      mutedUsers: [], // Phase 5: User moderation
+      blockedUsers: [], // Phase 5: User moderation
+      blockedByUsers: [], // Phase 5: User moderation
       createdAt: new Date(),
+      metadata: { // Phase 5: RAG preparation
+        aiPreferences: {
+          enableAIFeatures: true,
+          shareMetadata: true,
+          personalizeContent: true
+        }
+      }
     },
     'user_john': {
       uid: 'user_john',
@@ -154,6 +164,27 @@ const mockFirestoreData = {
       createdAt: new Date(Date.now() - 43200000), // 12 hours ago
     }
   },
+  // Reactions collection for emoji reactions
+  reactions: {
+    'reaction_sarah_heart': {
+      reactionId: 'reaction_sarah_heart',
+      senderUid: 'user_sarah',
+      targetType: 'post',
+      targetId: 'post_john_1',
+      emoji: '❤️',
+      createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+    },
+    'reaction_mike_fire': {
+      reactionId: 'reaction_mike_fire',
+      senderUid: 'user_mike',
+      targetType: 'post',
+      targetId: 'post_john_1',
+      emoji: '🔥',
+      createdAt: new Date(Date.now() - 15 * 60 * 1000), // 15 minutes ago
+    }
+  },
+  // Reports collection for user moderation
+  reports: {},
   posts: {
     'post_sarah_1': {
       postId: 'post_sarah_1',

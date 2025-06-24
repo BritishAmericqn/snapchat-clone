@@ -8,7 +8,7 @@ import {
   Alert,
   ActivityIndicator 
 } from "react-native";
-import { View, Button } from "../components";
+import { View, Button, ModerationMenu } from "../components";
 import { Colors } from "../config";
 import { AuthenticatedUserContext } from "../providers";
 import { 
@@ -16,8 +16,10 @@ import {
   checkFriendStatus, 
   sendFriendRequest,
   cancelFriendRequest,
-  getUsersByIds
+  getUsersByIds,
+  removeFriend
 } from "../api";
+import { getModerationStatus } from "../api/moderation";
 import { useFocusEffect } from "@react-navigation/native";
 
 export const UserProfileScreen = ({ navigation, route }) => {
@@ -29,6 +31,8 @@ export const UserProfileScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [friendsData, setFriendsData] = useState([]);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showModerationMenu, setShowModerationMenu] = useState(false);
+  const [moderationStatus, setModerationStatus] = useState({});
   
   const isOwnProfile = currentUser?.uid === userId;
   
@@ -53,6 +57,10 @@ export const UserProfileScreen = ({ navigation, route }) => {
       if (!isOwnProfile && currentUser?.uid) {
         const status = await checkFriendStatus(currentUser.uid, userId);
         setFriendStatus(status);
+        
+        // Load moderation status
+        const modStatus = await getModerationStatus(userId, currentUser.uid);
+        setModerationStatus(modStatus);
       }
     } catch (err) {
       console.error('[UserProfileScreen] Error loading user data:', err);
@@ -103,6 +111,42 @@ export const UserProfileScreen = ({ navigation, route }) => {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleRemoveFriend = async () => {
+    Alert.alert(
+      'Remove Friend',
+      `Are you sure you want to remove @${profile.username} as a friend?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setActionLoading(true);
+              await removeFriend(currentUser.uid, userId);
+              
+              // Reload friend status
+              const status = await checkFriendStatus(currentUser.uid, userId);
+              setFriendStatus(status);
+              
+              Alert.alert('Success', 'Friend removed');
+            } catch (err) {
+              console.error('[UserProfileScreen] Error removing friend:', err);
+              Alert.alert('Error', 'Failed to remove friend');
+            } finally {
+              setActionLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleModerationChange = async () => {
+    // Reload data when moderation status changes
+    await loadUserData();
   };
   
   const renderActionButton = () => {
@@ -186,6 +230,16 @@ export const UserProfileScreen = ({ navigation, route }) => {
       <ScrollView>
         {/* Profile Header */}
         <View style={styles.header}>
+          {/* Three-dot menu for non-own profiles */}
+          {!isOwnProfile && (
+            <TouchableOpacity 
+              style={styles.menuButton}
+              onPress={() => setShowModerationMenu(true)}
+            >
+              <Text style={styles.menuButtonText}>⋯</Text>
+            </TouchableOpacity>
+          )}
+          
           <Image 
             source={{ uri: profile.profilePhotoUrl || 'https://via.placeholder.com/150' }} 
             style={styles.profileImage} 
@@ -231,6 +285,21 @@ export const UserProfileScreen = ({ navigation, route }) => {
           </View>
         )}
       </ScrollView>
+      
+      {/* Moderation Menu */}
+      {!isOwnProfile && (
+        <ModerationMenu
+          visible={showModerationMenu}
+          onClose={() => setShowModerationMenu(false)}
+          targetUserId={userId}
+          targetUsername={profile?.username}
+          currentUserId={currentUser?.uid}
+          moderationStatus={moderationStatus}
+          onModerationChange={handleModerationChange}
+          isFriend={friendStatus?.isFriend}
+          onRemoveFriend={handleRemoveFriend}
+        />
+      )}
     </View>
   );
 };
@@ -244,6 +313,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 30,
     paddingHorizontal: 20,
+    position: 'relative',
+  },
+  menuButton: {
+    position: 'absolute',
+    top: 10,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.lightGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  menuButtonText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.black,
   },
   profileImage: {
     width: 120,

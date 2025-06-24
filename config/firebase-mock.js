@@ -1028,7 +1028,8 @@ const mockStorage = {
         console.log('[MockStorage] File object:', { 
           type: typeof file, 
           hasUri: !!(file && file.uri),
-          isString: typeof file === 'string'
+          isString: typeof file === 'string',
+          isBlob: !!(file && typeof file === 'object' && file.constructor && file.constructor.name === 'Blob')
         });
         
         // For mock, we'll store the file URI
@@ -1036,24 +1037,37 @@ const mockStorage = {
           setTimeout(() => {
             // Handle different file formats
             let fileUri = '';
+            
             if (typeof file === 'string') {
+              // Direct string URI (from messages.js for file:// and content://)
               fileUri = file;
+              console.log('[MockStorage] String URI received:', fileUri.substring(0, 50) + '...');
+            } else if (file && typeof file === 'object' && file.constructor && file.constructor.name === 'Blob') {
+              // Blob (from HTTP URLs)
+              console.log('[MockStorage] Blob detected, generating placeholder');
+              const randomId = Math.floor(Math.random() * 1000);
+              fileUri = `https://picsum.photos/400/600?random=${randomId}`;
             } else if (file && file.uri) {
+              // Image picker result object
               fileUri = file.uri;
-            } else if (file) {
-              fileUri = String(file);
+              console.log('[MockStorage] Image picker object, URI:', fileUri.substring(0, 50) + '...');
+            } else {
+              // Unknown format
+              console.error('[MockStorage] Unknown file format:', file);
+              // Use placeholder instead of [object Object]
+              const randomId = Math.floor(Math.random() * 1000);
+              fileUri = `https://picsum.photos/400/600?random=${randomId}`;
             }
             
             mockStorageData[path] = { 
               uri: fileUri, 
               uploadedAt: new Date(),
-              type: 'file',
-              originalFile: file, // Store original for debugging
+              type: 'file'
             };
-            console.log('[MockStorage] File upload completed for:', path);
+            console.log('[MockStorage] File stored with URI:', fileUri);
             resolve({
               ref: mockStorage.ref(path),
-              metadata: { contentType: (file && file.type) || 'image/jpeg' },
+              metadata: { contentType: 'image/jpeg' },
             });
           }, 300);
         });

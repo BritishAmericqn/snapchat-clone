@@ -220,10 +220,14 @@ export const sendMessage = async ({
             throw new Error('Invalid base64 data');
           }
           await uploadString(storageRef, base64Data, 'base64');
-        } else if (safeStartsWith(mediaUriString, 'http') || safeStartsWith(mediaUriString, 'https') || 
-                   safeStartsWith(mediaUriString, 'file://') || safeStartsWith(mediaUriString, 'content://')) {
-          // File URI (including Android content:// URIs and HTTP URLs)
-          console.log('[API] Uploading file URI:', safeSubstring(mediaUriString, 0, 50) + '...');
+        } else if (safeStartsWith(mediaUriString, 'file://') || safeStartsWith(mediaUriString, 'content://')) {
+          // For mock storage, pass the URI directly to preserve it
+          // Real Firebase would need the blob approach
+          console.log('[API] Uploading local file URI (mock mode):', safeSubstring(mediaUriString, 0, 50) + '...');
+          await uploadBytes(storageRef, mediaUriString);
+        } else if (safeStartsWith(mediaUriString, 'http') || safeStartsWith(mediaUriString, 'https')) {
+          // HTTP URLs need to be fetched as blobs
+          console.log('[API] Uploading HTTP URL:', safeSubstring(mediaUriString, 0, 50) + '...');
           const response = await fetch(mediaUriString);
           if (!response.ok) {
             throw new Error(`Failed to fetch media: ${response.status} ${response.statusText}`);

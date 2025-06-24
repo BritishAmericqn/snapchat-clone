@@ -156,20 +156,29 @@ export const ChatRoomScreen = ({ route, navigation }) => {
     let result;
     if (useCamera) {
       result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
         quality: 0.8,
       });
     } else {
       result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
         quality: 0.8,
       });
     }
 
+    console.log('[ChatRoomScreen] ImagePicker result:', {
+      canceled: result.canceled,
+      assets: result.assets,
+      assetUri: result.assets?.[0]?.uri,
+      assetUriType: typeof result.assets?.[0]?.uri
+    });
+
     if (!result.canceled && result.assets[0]) {
-      handleSend(result.assets[0].uri, 'image');
+      const imageUri = result.assets[0].uri;
+      console.log('[ChatRoomScreen] Sending image with URI:', imageUri);
+      handleSend(imageUri, 'image');
     }
   };
 

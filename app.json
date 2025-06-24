@@ -1,9 +1,0 @@
-{
-  "expo": {
-    "name": "snapchat-clone",
-    "slug": "snapchat-clone",
-    "ios": {
-      "bundleIdentifier": "com.benjaminroyston.snapchatclone"
-    }
-  }
-}

@@ -2,17 +2,16 @@ import "dotenv/config";
 
 export default {
   expo: {
-    name: "Expo Firebase Starter",
-    slug: "expo-firebase",
-    privacy: "public",
+    name: "Snapchat Clone",
+    slug: "snapchat-clone",
     platforms: ["ios", "android"],
-    version: "0.19.0",
+    version: "0.1.0",
     orientation: "portrait",
-    icon: "./assets/flame.png",
+    icon: "./assets/icon.png",
     splash: {
       image: "./assets/splash.png",
       resizeMode: "cover",
-      backgroundColor: "#F57C00",
+      backgroundColor: "#FFFC00",
     },
     updates: {
       fallbackToCacheTimeout: 0,

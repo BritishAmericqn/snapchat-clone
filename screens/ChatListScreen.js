@@ -183,6 +183,41 @@ export const ChatListScreen = ({ navigation }) => {
               ? 'Try searching with different keywords'
               : 'Start a conversation with your friends!'}
           </Text>
+          
+          {/* Friend Management Options in Empty State */}
+          {!searchQuery && (
+            <View style={styles.friendManagementSection}>
+              <Text style={styles.sectionTitle}>Find Friends</Text>
+              
+              <TouchableOpacity 
+                style={styles.friendManagementButton}
+                onPress={() => navigation.navigate('SearchUsers')}
+              >
+                <Text style={styles.friendManagementButtonText}>🔍 Search Users</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.friendManagementButton}
+                onPress={() => navigation.navigate('FriendSuggestions')}
+              >
+                <Text style={styles.friendManagementButtonText}>👥 Friend Suggestions</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.friendManagementButton}
+                onPress={() => navigation.navigate('FriendRequests')}
+              >
+                <Text style={styles.friendManagementButtonText}>📨 Friend Requests</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.friendManagementButton}
+                onPress={() => navigation.navigate('FriendsList')}
+              >
+                <Text style={styles.friendManagementButtonText}>👫 My Friends</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       ) : (
         <FlatList
@@ -268,6 +303,41 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: Colors.gray,
+    textAlign: 'center',
+  },
+  friendManagementSection: {
+    marginTop: 30,
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: Colors.black,
+  },
+  friendManagementButton: {
+    width: '100%',
+    padding: 15,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.lightGray,
+    borderRadius: 10,
+    marginBottom: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+  },
+  friendManagementButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.black,
     textAlign: 'center',
   },
   fab: {

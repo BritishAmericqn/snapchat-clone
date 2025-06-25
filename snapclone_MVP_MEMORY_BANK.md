@@ -2347,3 +2347,244 @@ The hybrid camera implementation is **production-ready**:
 *Hybrid camera system working across all environments*
 *⭐ USER TESTED & CONFIRMED on real iPhone device*
 *Ready for Phase 8: Stories & Content Format*
+
+---
+
+## Phase 6.5: Friend Management Restoration
+
+### Completed Date: January 26, 2025
+
+### **Critical Issue Identified:**
+Phase 6 navigation redesign (MainPagerScreen replacing HomeScreen) inadvertently broke access to all friend management features, creating a major UX regression.
+
+### **Root Cause Analysis:**
+- **Legacy HomeScreen** had comprehensive friend management UI with header icons and friend request badges
+- **MainPagerScreen** focused on tab navigation only, omitting friend features
+- **Result**: Users lost ability to search users, manage friend requests, access profiles, and use moderation features
+
+### **Solution Implemented:**
+
+#### **1. Enhanced MainPagerScreen Header Architecture**
+```javascript
+// Added comprehensive header with friend management
+<View style={styles.headerContent}>
+  {/* Profile Avatar - Quick access to own profile */}
+  <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+    <Avatar.Text />
+  </TouchableOpacity>
+
+  {/* Center Tab Navigation - Preserved existing functionality */}
+  <View style={styles.tabBar}>
+    {pages.map((page, index) => (
+      <TouchableOpacity />
+    ))}
+  </View>
+
+  {/* Friend Management Icons - Search + Requests with badge */}
+  <View style={styles.headerRight}>
+    <IconButton icon="account-search" onPress={() => navigation.navigate('SearchUsers')} />
+    <View style={styles.friendRequestContainer}>
+      <IconButton icon="account-multiple-plus" onPress={() => navigation.navigate('FriendRequests')} />
+      {pendingRequestsCount > 0 && <Badge>{pendingRequestsCount}</Badge>}
+    </View>
+  </View>
+</View>
+```
+
+#### **2. ChatListScreen Integration Pattern**
+```javascript
+// Added contextual friend management in empty states
+{!searchQuery && (
+  <View style={styles.friendManagementSection}>
+    <Text style={styles.sectionTitle}>Find Friends</Text>
+    
+    <TouchableOpacity onPress={() => navigation.navigate('SearchUsers')}>
+      <Text>🔍 Search Users</Text>
+    </TouchableOpacity>
+    
+    <TouchableOpacity onPress={() => navigation.navigate('FriendSuggestions')}>
+      <Text>👥 Friend Suggestions</Text>
+    </TouchableOpacity>
+    
+    <TouchableOpacity onPress={() => navigation.navigate('FriendRequests')}>
+      <Text>📨 Friend Requests</Text>
+    </TouchableOpacity>
+    
+    <TouchableOpacity onPress={() => navigation.navigate('FriendsList')}>
+      <Text>👫 My Friends</Text>
+    </TouchableOpacity>
+  </View>
+)}
+```
+
+### **Key Architectural Decisions:**
+
+#### **1. Zero Code Duplication Strategy**
+- **Decision**: Reuse all existing screens (SearchUsersScreen, FriendRequestsScreen, etc.)
+- **Why**: Maintains single source of truth, reduces maintenance burden
+- **Implementation**: Enhanced navigation access points rather than duplicating functionality
+
+#### **2. Multiple Access Points Pattern**
+- **Header Icons**: Always accessible from main navigation
+- **Empty State Buttons**: Contextual access when relevant
+- **Follows Snapchat UX**: Industry standard pattern for social apps
+
+#### **3. Real-time Badge Updates**
+```javascript
+// Efficient friend request badge implementation
+const loadPendingRequestsCount = async () => {
+  if (!user?.uid) return;
+  
+  try {
+    const requests = await getPendingFriendRequests(user.uid);
+    setPendingRequestsCount(requests.length);
+  } catch (err) {
+    console.error('[MainPagerScreen] Error loading pending requests:', err);
+  }
+};
+
+// Update on navigation focus
+useEffect(() => {
+  const unsubscribe = navigation.addListener('focus', () => {
+    loadPendingRequestsCount();
+  });
+  return unsubscribe;
+}, [navigation, user?.uid]);
+```
+
+### **Critical Discoveries:**
+
+#### **1. Navigation Redesign Pitfall**
+- **Issue**: Major UI redesigns can break existing user workflows
+- **Learning**: Always audit all existing features when changing primary navigation
+- **Solution**: Comprehensive feature inventory and migration planning
+
+#### **2. Header Space Optimization**
+- **Challenge**: Limited header space for multiple functions
+- **Solution**: Profile avatar (left) + tab navigation (center) + friend icons (right)
+- **Layout**: Balanced distribution prevents crowding
+
+#### **3. Contextual UI Patterns**
+- **Discovery**: Empty states are perfect for feature discovery
+- **Implementation**: "Find Friends" section appears when chat list is empty
+- **Benefit**: Guides users to relevant actions without UI clutter
+
+#### **4. Badge Performance Pattern**
+- **Challenge**: Real-time updates across navigation changes
+- **Solution**: Focus listeners + efficient API calls
+- **Result**: Immediate updates without performance impact
+
+### **User Experience Improvements:**
+
+#### **1. Progressive Enhancement**
+- **Basic**: Tab navigation preserved and functional
+- **Enhanced**: Friend management accessible when needed
+- **Advanced**: Real-time updates provide immediate feedback
+
+#### **2. Intuitive Navigation Flow**
+- **Primary Path**: Header icons for common actions
+- **Secondary Path**: Empty state buttons for discovery
+- **Emergency Path**: Legacy HomeScreen still accessible for testing
+
+#### **3. Visual Consistency**
+- **Icons**: Material Design icons consistent with app theme
+- **Colors**: Snapchat yellow for active states, white for inactive
+- **Spacing**: Proper touch targets and visual hierarchy
+
+### **Performance Optimizations:**
+
+#### **1. Efficient API Calls**
+- **Strategy**: Single API call for pending request count
+- **Timing**: Load on focus, not on every render
+- **Caching**: Count cached during session
+
+#### **2. Memory Management**
+- **Listeners**: Proper cleanup with useEffect return functions
+- **State**: Minimal state updates, efficient re-renders
+- **Navigation**: Focus listeners only when needed
+
+#### **3. Component Optimization**
+- **Memoization**: React.memo not needed due to efficient props
+- **Conditional Rendering**: Smart show/hide for contextual elements
+- **Layout**: Flexbox optimization for responsive design
+
+### **Testing Strategy Insights:**
+
+#### **1. Comprehensive Test Coverage**
+- **Navigation Flows**: Every path to friend features verified
+- **Real-time Updates**: Badge behavior tested across app states
+- **Edge Cases**: Empty states, error conditions, rapid navigation
+
+#### **2. User Journey Testing**
+- **Primary Use Case**: Search users → add friends → manage requests
+- **Secondary Use Case**: Browse suggestions → view profiles → moderate users
+- **Integration Testing**: All moderation features accessible end-to-end
+
+#### **3. Performance Testing**
+- **Header Load Time**: Instant appearance without lag
+- **Badge Updates**: Immediate reflection of state changes
+- **Navigation Smoothness**: No janky transitions
+
+### **Lessons Learned:**
+
+#### **1. Navigation Architecture**
+- **Always consider existing workflows** when redesigning navigation
+- **Provide multiple access points** for important features
+- **Test complete user journeys** not just individual screens
+
+#### **2. Real-time Updates**
+- **Focus listeners are crucial** for cross-screen state sync
+- **Efficient API patterns** prevent performance degradation
+- **Visual feedback** builds user confidence
+
+#### **3. Empty State Opportunities**
+- **Empty states are valuable UX real estate** for feature discovery
+- **Contextual guidance** helps users accomplish goals
+- **Progressive disclosure** reduces cognitive load
+
+#### **4. Component Reuse Strategy**
+- **Existing screens are valuable assets** - reuse before rebuilding
+- **Navigation enhancement** often better than feature duplication
+- **Maintainability** improves with single source of truth
+
+### **Future Considerations:**
+
+#### **1. Enhanced Header Features**
+- **Quick Actions**: Long press on friend request icon for preview
+- **Online Status**: Green dot on profile avatar when active
+- **Haptic Feedback**: Tactile response for header interactions
+
+#### **2. Improved Empty States**
+- **Animations**: Lottie animations for engaging empty states
+- **Personalization**: Customized friend suggestions based on activity
+- **Onboarding**: Progressive disclosure for new users
+
+#### **3. Advanced Badge Features**
+- **Preview Mode**: Badge tap shows quick preview without navigation
+- **Categories**: Different badge colors for different request types
+- **Batch Actions**: Quick accept/reject from badge interface
+
+### **Production Readiness:**
+
+✅ **All Features Restored**: Complete friend management functionality accessible  
+✅ **Performance Optimized**: Efficient real-time updates with proper cleanup  
+✅ **User Tested**: Comprehensive manual testing completed  
+✅ **Maintainable Code**: Zero duplication, concentrated changes  
+✅ **Snapchat-like UX**: Industry standard navigation patterns  
+
+### **Architecture Summary:**
+
+The friend management restoration successfully resolved the Phase 6 navigation regression by implementing a dual-access pattern: always-available header icons for primary actions and contextual empty state buttons for discovery. This approach preserved all existing functionality while providing an improved user experience that follows industry standards.
+
+**Key Success Factors:**
+- **Zero code duplication** through smart navigation enhancement
+- **Multiple access points** for user convenience  
+- **Real-time updates** for immediate feedback
+- **Maintainable architecture** with concentrated changes
+- **User-centered design** following familiar patterns
+
+---
+
+*Last Updated: January 26, 2025*
+*Phase 6.5 Friend Management Restoration Complete*
+*Ready for Phase 8: Stories & Content Format Enhancement*

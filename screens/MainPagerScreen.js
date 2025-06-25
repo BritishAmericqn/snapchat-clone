@@ -1,17 +1,47 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useContext, useEffect } from 'react';
 import { View, StyleSheet, Dimensions, StatusBar, Text, TouchableOpacity } from 'react-native';
 // import PagerView from 'react-native-pager-view'; // Will work in dev build
+import { IconButton, Badge, Avatar } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
 import { ChatListScreen } from './ChatListScreen';
 import { CameraScreen } from './CameraScreen';
 import { StoriesScreen } from './StoriesScreen';
 import { Colors } from '../config';
+import { AuthenticatedUserContext } from '../providers';
+import { getPendingFriendRequests } from '../api';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export const MainPagerScreen = ({ navigation }) => {
+  const { user } = useContext(AuthenticatedUserContext);
   const [currentPage, setCurrentPage] = useState(0); // Start on chats to avoid camera crash
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const pagerRef = useRef(null);
+
+  // Load pending friend requests count
+  useEffect(() => {
+    loadPendingRequestsCount();
+  }, [user?.uid]);
+
+  // Refresh count when screen comes into focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadPendingRequestsCount();
+    });
+
+    return unsubscribe;
+  }, [navigation, user?.uid]);
+
+  const loadPendingRequestsCount = async () => {
+    if (!user?.uid) return;
+    
+    try {
+      const requests = await getPendingFriendRequests(user.uid);
+      setPendingRequestsCount(requests.length);
+    } catch (err) {
+      console.error('[MainPagerScreen] Error loading pending requests:', err);
+    }
+  };
 
   const handlePageSelected = useCallback((pageIndex) => {
     setCurrentPage(pageIndex);
@@ -40,26 +70,61 @@ export const MainPagerScreen = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
       
-      {/* Header with tab navigation */}
+      {/* Header with tab navigation and friend management */}
       <View style={styles.header}>
-        <View style={styles.tabBar}>
-          {pages.map((page, index) => (
-            <TouchableOpacity
-              key={page.key}
-              style={[
-                styles.tab,
-                currentPage === index && styles.activeTab
-              ]}
-              onPress={() => handlePageSelected(index)}
-            >
-              <Text style={[
-                styles.tabText,
-                currentPage === index && styles.activeTabText
-              ]}>
-                {page.title}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        <View style={styles.headerContent}>
+          {/* Profile Avatar */}
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+            <Avatar.Text 
+              size={32}
+              label={user?.displayName?.[0] || user?.username?.[0] || '?'} 
+              style={styles.profileAvatar}
+            />
+          </TouchableOpacity>
+
+          {/* Tab Navigation */}
+          <View style={styles.tabBar}>
+            {pages.map((page, index) => (
+              <TouchableOpacity
+                key={page.key}
+                style={[
+                  styles.tab,
+                  currentPage === index && styles.activeTab
+                ]}
+                onPress={() => handlePageSelected(index)}
+              >
+                <Text style={[
+                  styles.tabText,
+                  currentPage === index && styles.activeTabText
+                ]}>
+                  {page.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Friend Management Icons */}
+          <View style={styles.headerRight}>
+            <IconButton
+              icon="account-search"
+              size={20}
+              iconColor={Colors.white}
+              onPress={() => navigation.navigate('SearchUsers')}
+            />
+            <View style={styles.friendRequestContainer}>
+              <IconButton
+                icon="account-multiple-plus"
+                size={20}
+                iconColor={Colors.white}
+                onPress={() => navigation.navigate('FriendRequests')}
+              />
+              {pendingRequestsCount > 0 && (
+                <Badge style={styles.badge} size={16}>
+                  {pendingRequestsCount}
+                </Badge>
+              )}
+            </View>
+          </View>
         </View>
       </View>
       
@@ -68,14 +133,14 @@ export const MainPagerScreen = ({ navigation }) => {
         {renderCurrentScreen()}
       </View>
       
-             {/* Development Build Ready Message */}
-       {__DEV__ && (
-         <View style={styles.devNote}>
-           <Text style={styles.devNoteText}>
-             💡 Swipe navigation will work in development build
-           </Text>
-         </View>
-       )}
+      {/* Development Build Ready Message */}
+      {__DEV__ && (
+        <View style={styles.devNote}>
+          <Text style={styles.devNoteText}>
+            💡 Swipe navigation will work in development build
+          </Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -92,27 +157,51 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.gray,
   },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+  },
+  profileAvatar: {
+    backgroundColor: Colors.primary,
+  },
   tabBar: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    flex: 1,
   },
   tab: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 20,
+    marginHorizontal: 4,
   },
   activeTab: {
     backgroundColor: Colors.primary,
   },
   tabText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: Colors.white,
   },
   activeTabText: {
     color: Colors.black,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  friendRequestContainer: {
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: Colors.red,
+    color: Colors.white,
   },
   screenContainer: {
     flex: 1,

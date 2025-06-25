@@ -1,14 +1,12 @@
 import { Images } from "./images";
 import { Colors } from "./theme";
 
-// Using mock Firebase for Expo Go development (Phase 0 & 1)
+// Using mock Firebase for ALL builds temporarily (Phase 7 camera testing)
 import { auth, db, storage } from "./firebase-mock";
 // import { auth, db, storage } from "./firebase";
 
-// To use REAL Firebase (requires development build):
-// 1. Comment out the mock import above
-// 2. Uncomment the real Firebase import
-// 3. Run: npx expo run:ios (or run:android)
+// Temporary: Using mock Firebase so we can test Phase 7 camera features
+// This allows the app to run without Firebase setup issues
 
 // Re-export all auth functions from mock
 export { 

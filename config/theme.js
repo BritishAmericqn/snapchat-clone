@@ -1,6 +1,7 @@
 export const Colors = {
   // Snapchat brand colors
   snapYellow: "#FFFC00",  // Snapchat's signature yellow
+  primary: "#FFFC00",     // Primary brand color (same as snapYellow for consistency)
   black: "#222222",       // Pure black for text and UI elements  
   white: "#ffffff",       // White backgrounds
   

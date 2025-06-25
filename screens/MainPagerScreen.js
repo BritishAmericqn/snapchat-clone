@@ -10,7 +10,7 @@ import { Colors } from '../config';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export const MainPagerScreen = ({ navigation }) => {
-  const [currentPage, setCurrentPage] = useState(1); // Start on camera (center)
+  const [currentPage, setCurrentPage] = useState(0); // Start on chats to avoid camera crash
   const pagerRef = useRef(null);
 
   const handlePageSelected = useCallback((pageIndex) => {
@@ -74,54 +74,6 @@ export const MainPagerScreen = ({ navigation }) => {
            <Text style={styles.devNoteText}>
              💡 Swipe navigation will work in development build
            </Text>
-           <TouchableOpacity 
-             style={styles.testButton}
-             onPress={() => {
-               import('../test-phase6-fixes').then(({ runPhase6Tests }) => {
-                 runPhase6Tests();
-               }).catch(error => {
-                 console.error('Test import failed:', error);
-               });
-             }}
-           >
-             <Text style={styles.testButtonText}>🧪 Run Tests</Text>
-           </TouchableOpacity>
-           <TouchableOpacity 
-             style={[styles.testButton, { marginTop: 5, backgroundColor: '#FF6B6B' }]}
-             onPress={() => {
-               import('../test-media-uri-fix').then(({ testMediaUriFix }) => {
-                 testMediaUriFix();
-               }).catch(error => {
-                 console.error('Media URI test import failed:', error);
-               });
-             }}
-           >
-             <Text style={styles.testButtonText}>🔧 URI Fix Test</Text>
-           </TouchableOpacity>
-           <TouchableOpacity 
-             style={[styles.testButton, { marginTop: 5, backgroundColor: '#6B83FF' }]}
-             onPress={() => {
-               import('../test-stories-debug').then(({ debugStoriesIssue }) => {
-                 debugStoriesIssue();
-               }).catch(error => {
-                 console.error('Stories debug import failed:', error);
-               });
-             }}
-           >
-             <Text style={styles.testButtonText}>🔍 Debug Stories</Text>
-           </TouchableOpacity>
-           <TouchableOpacity 
-             style={[styles.testButton, { marginTop: 5, backgroundColor: '#4CAF50' }]}
-             onPress={() => {
-               import('../test-dm-image-upload').then(({ testDMImageUpload }) => {
-                 testDMImageUpload();
-               }).catch(error => {
-                 console.error('DM image test import failed:', error);
-               });
-             }}
-           >
-             <Text style={styles.testButtonText}>📸 Test DM Images</Text>
-           </TouchableOpacity>
          </View>
        )}
     </View>
@@ -180,18 +132,5 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     textAlign: 'center',
     fontSize: 12,
-    marginBottom: 10,
-  },
-  testButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 15,
-    alignSelf: 'center',
-  },
-  testButtonText: {
-    color: Colors.black,
-    fontSize: 12,
-    fontWeight: '600',
   },
 }); 

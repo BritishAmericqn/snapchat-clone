@@ -16,8 +16,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { AuthenticatedUserContext } from '../providers';
 import { Colors } from '../config';
-import { createPost } from '../api';
-import { TextOverlayTools, ImageComposer } from '../components';
+import { createPost, generateCaptionSuggestions } from '../api';
+import { TextOverlayTools, ImageComposer, VideoPlayer } from '../components';
 
 export const MediaPreviewScreen = ({ navigation, route }) => {
   const { user } = useContext(AuthenticatedUserContext);
@@ -28,6 +28,12 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
   const [deleteOnView, setDeleteOnView] = useState(false);
   const [expiresIn, setExpiresIn] = useState(24); // hours
   const [isPosting, setIsPosting] = useState(false);
+  
+  // RAG Caption Generation State
+  const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false);
+  const [captionSuggestions, setCaptionSuggestions] = useState([]);
+  const [showCaptionSuggestions, setShowCaptionSuggestions] = useState(false);
+  const [selectedCaptionStyle, setSelectedCaptionStyle] = useState('casual');
   
   // Text overlay state
   const [textOverlaysEnabled, setTextOverlaysEnabled] = useState(false);
@@ -42,8 +48,8 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
       
       let finalMediaUri = media.uri;
       
-      // If there are text overlays, compose them into the image
-      if (textOverlays.length > 0 && imageComposerRef.current) {
+      // Only compose text overlays for images (not videos)
+      if (textOverlays.length > 0 && imageComposerRef.current && media.type === 'image') {
         console.log('[MediaPreview] Composing image with text overlays...');
         try {
           const compositeUri = await imageComposerRef.current.captureComposition();
@@ -122,6 +128,58 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
     console.log('[MediaPreview] Text overlays toggled:', !textOverlaysEnabled);
   };
 
+  // RAG Caption Generation Functions
+  const handleGenerateCaptions = async () => {
+    try {
+      setIsGeneratingCaptions(true);
+      console.log('[MediaPreview] Generating captions for image:', media.uri);
+      
+      const result = await generateCaptionSuggestions(
+        media.uri,
+        user.uid,
+        { style: selectedCaptionStyle }
+      );
+      
+      if (result.success && result.captions) {
+        setCaptionSuggestions(result.captions);
+        setShowCaptionSuggestions(true);
+        console.log('[MediaPreview] Generated captions:', result.captions);
+      } else {
+        // Use fallback captions if API fails
+        setCaptionSuggestions(result.captions || []);
+        setShowCaptionSuggestions(true);
+        console.log('[MediaPreview] Using fallback captions:', result.captions);
+      }
+    } catch (error) {
+      console.error('[MediaPreview] Error generating captions:', error);
+      Alert.alert(
+        'Caption Generation Failed',
+        'Unable to generate smart captions. Please try again or add a caption manually.',
+        [{ text: 'OK', style: 'default' }]
+      );
+    } finally {
+      setIsGeneratingCaptions(false);
+    }
+  };
+
+  const handleSelectCaption = (selectedCaption) => {
+    setCaption(selectedCaption);
+    setShowCaptionSuggestions(false);
+    console.log('[MediaPreview] Caption selected:', selectedCaption);
+  };
+
+  const handleDismissSuggestions = () => {
+    setShowCaptionSuggestions(false);
+  };
+
+  const handleCaptionStyleChange = (style) => {
+    setSelectedCaptionStyle(style);
+    // Regenerate captions with new style if suggestions are visible
+    if (showCaptionSuggestions) {
+      handleGenerateCaptions();
+    }
+  };
+
   const visibilityOptions = [
     { value: 'friends', label: 'Friends Only', icon: 'people' },
     { value: 'friendsOfFriends', label: 'Friends of Friends', icon: 'people-circle' },
@@ -155,17 +213,19 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
           <Text style={styles.headerTitle}>New Snap</Text>
           
           <View style={styles.headerRight}>
-            {/* Text Overlay Toggle Button */}
-            <TouchableOpacity
-              style={[styles.headerButton, textOverlaysEnabled && styles.headerButtonActive]}
-              onPress={toggleTextOverlays}
-            >
-              <Ionicons 
-                name="text" 
-                size={24} 
-                color={textOverlaysEnabled ? Colors.snapYellow : Colors.white} 
-              />
-            </TouchableOpacity>
+            {/* Text Overlay Toggle Button - Only show for images */}
+            {media.type === 'image' && (
+              <TouchableOpacity
+                style={[styles.headerButton, textOverlaysEnabled && styles.headerButtonActive]}
+                onPress={toggleTextOverlays}
+              >
+                <Ionicons 
+                  name="text" 
+                  size={24} 
+                  color={textOverlaysEnabled ? Colors.snapYellow : Colors.white} 
+                />
+              </TouchableOpacity>
+            )}
             
             <TouchableOpacity
               style={[styles.headerButton, styles.postButton]}
@@ -187,10 +247,21 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
         >
           {/* Media Preview Container */}
           <View style={styles.mediaContainer}>
-            <Image source={{ uri: media.uri }} style={styles.mediaPreview} />
+            {media.type === 'video' ? (
+              <VideoPlayer
+                source={{ uri: media.uri }}
+                style={styles.mediaPreview}
+                showControls={true}
+                autoPlay={false}
+                isMuted={true}
+                isLooping={false}
+              />
+            ) : (
+              <Image source={{ uri: media.uri }} style={styles.mediaPreview} />
+            )}
             
-            {/* Text Overlay Tools */}
-            {textOverlaysEnabled && (
+            {/* Text Overlay Tools - Only show for images */}
+            {textOverlaysEnabled && media.type === 'image' && (
               <TextOverlayTools
                 isEnabled={textOverlaysEnabled}
                 onTextAdded={handleTextAdded}
@@ -213,7 +284,79 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
 
           {/* Caption Input */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Caption</Text>
+            <View style={styles.captionHeader}>
+              <Text style={styles.sectionTitle}>Caption</Text>
+              {/* Smart Caption Generation Button - Only show for images */}
+              {media.type === 'image' && (
+                <TouchableOpacity
+                  style={styles.generateCaptionButton}
+                  onPress={handleGenerateCaptions}
+                  disabled={isGeneratingCaptions}
+                >
+                  {isGeneratingCaptions ? (
+                    <ActivityIndicator size="small" color={Colors.snapYellow} />
+                  ) : (
+                    <Ionicons name="sparkles" size={16} color={Colors.snapYellow} />
+                  )}
+                  <Text style={styles.generateCaptionText}>
+                    {isGeneratingCaptions ? 'Generating...' : 'Generate'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            
+            {/* Caption Style Selector - Show when generating or suggestions visible */}
+            {(isGeneratingCaptions || showCaptionSuggestions) && media.type === 'image' && (
+              <View style={styles.captionStyleContainer}>
+                <Text style={styles.captionStyleLabel}>Style:</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {['casual', 'creative', 'descriptive', 'minimal'].map((style) => (
+                    <TouchableOpacity
+                      key={style}
+                      style={[
+                        styles.captionStyleButton,
+                        selectedCaptionStyle === style && styles.captionStyleButtonActive
+                      ]}
+                      onPress={() => handleCaptionStyleChange(style)}
+                    >
+                      <Text style={[
+                        styles.captionStyleButtonText,
+                        selectedCaptionStyle === style && styles.captionStyleButtonTextActive
+                      ]}>
+                        {style.charAt(0).toUpperCase() + style.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+            
+            {/* Caption Suggestions */}
+            {showCaptionSuggestions && captionSuggestions.length > 0 && (
+              <View style={styles.captionSuggestionsContainer}>
+                <View style={styles.suggestionsHeader}>
+                  <Text style={styles.suggestionsTitle}>Suggestions</Text>
+                  <TouchableOpacity
+                    style={styles.dismissSuggestionsButton}
+                    onPress={handleDismissSuggestions}
+                  >
+                    <Ionicons name="close" size={16} color={Colors.lightGray} />
+                  </TouchableOpacity>
+                </View>
+                
+                {captionSuggestions.map((suggestion, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.captionSuggestion}
+                    onPress={() => handleSelectCaption(suggestion)}
+                  >
+                    <Text style={styles.captionSuggestionText}>{suggestion}</Text>
+                    <Ionicons name="add-circle-outline" size={20} color={Colors.snapYellow} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            
             <TextInput
               style={styles.captionInput}
               placeholder="Add a caption..."
@@ -492,5 +635,94 @@ const styles = StyleSheet.create({
   composerContainer: {
     width: '100%',
     height: '100%',
+  },
+  
+  // RAG Caption Generation Styles
+  captionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  generateCaptionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 252, 0, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.snapYellow,
+  },
+  generateCaptionText: {
+    color: Colors.snapYellow,
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  captionStyleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  captionStyleLabel: {
+    color: Colors.lightGray,
+    fontSize: 14,
+    marginRight: 10,
+  },
+  captionStyleButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.darkGray,
+  },
+  captionStyleButtonActive: {
+    borderColor: Colors.snapYellow,
+    backgroundColor: 'rgba(255, 252, 0, 0.1)',
+  },
+  captionStyleButtonText: {
+    color: Colors.white,
+    fontSize: 12,
+  },
+  captionStyleButtonTextActive: {
+    color: Colors.snapYellow,
+    fontWeight: '600',
+  },
+  captionSuggestionsContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 15,
+  },
+  suggestionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  suggestionsTitle: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  dismissSuggestionsButton: {
+    padding: 4,
+  },
+  captionSuggestion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  captionSuggestionText: {
+    color: Colors.white,
+    fontSize: 14,
+    flex: 1,
+    marginRight: 8,
   },
 }); 

@@ -36,6 +36,7 @@ import {
 } from '../api';
 import { Colors, db } from '../config';
 import * as ImagePicker from 'expo-image-picker';
+import { VideoPlayer } from '../components';
 
 export const ChatRoomScreen = ({ route, navigation }) => {
   const { user } = useContext(AuthenticatedUserContext);
@@ -150,35 +151,41 @@ export const ChatRoomScreen = ({ route, navigation }) => {
     }
   };
 
-  const handleImagePick = async (useCamera = false) => {
+  const handleMediaPick = async (useCamera = false) => {
     setMenuVisible(false);
     
     let result;
     if (useCamera) {
       result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
         allowsEditing: false,
         quality: 0.8,
+        videoMaxDuration: 60, // Match Snapchat-like duration limit
       });
     } else {
       result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
         allowsEditing: false,
         quality: 0.8,
+        videoMaxDuration: 60,
       });
     }
 
-    console.log('[ChatRoomScreen] ImagePicker result:', {
+    console.log('[ChatRoomScreen] MediaPicker result:', {
       canceled: result.canceled,
       assets: result.assets,
       assetUri: result.assets?.[0]?.uri,
+      assetType: result.assets?.[0]?.type,
       assetUriType: typeof result.assets?.[0]?.uri
     });
 
     if (!result.canceled && result.assets[0]) {
-      const imageUri = result.assets[0].uri;
-      console.log('[ChatRoomScreen] Sending image with URI:', imageUri);
-      handleSend(imageUri, 'image');
+      const asset = result.assets[0];
+      const mediaUri = asset.uri;
+      const mediaType = asset.type === 'video' ? 'video' : 'image';
+      
+      console.log('[ChatRoomScreen] Sending media with URI:', mediaUri, 'Type:', mediaType);
+      handleSend(mediaUri, mediaType);
     }
   };
 
@@ -208,11 +215,12 @@ export const ChatRoomScreen = ({ route, navigation }) => {
     const isOwnMessage = item.senderUid === user.uid;
     const timeRemaining = getTimeRemaining(item.expiresAt);
     
-    // Debug logging for image URLs
+    // Debug logging for media URLs
     if (item.mediaUrl) {
-      console.log('[ChatRoomScreen] Rendering message with image:', {
+      console.log('[ChatRoomScreen] Rendering message with media:', {
         messageId: item.id,
         mediaUrl: item.mediaUrl,
+        mediaType: item.mediaType,
         isFileUri: item.mediaUrl?.startsWith('file://'),
         isHttpUri: item.mediaUrl?.startsWith('http'),
       });
@@ -228,17 +236,36 @@ export const ChatRoomScreen = ({ route, navigation }) => {
           isOwnMessage ? styles.ownBubble : styles.otherBubble
         ]}>
           {item.mediaUrl && (
-            <Image 
-              source={{ uri: item.mediaUrl }} 
-              style={styles.messageImage}
-              onError={(e) => {
-                console.error('[ChatRoomScreen] Image load error:', e.nativeEvent.error);
-                console.error('[ChatRoomScreen] Failed URL:', item.mediaUrl);
-              }}
-              onLoad={() => {
-                console.log('[ChatRoomScreen] Image loaded successfully:', item.mediaUrl);
-              }}
-            />
+            <View style={styles.mediaContainer}>
+              {item.mediaType === 'video' ? (
+                <VideoPlayer
+                  source={{ uri: item.mediaUrl }}
+                  style={styles.messageVideo}
+                  showControls={true}
+                  autoPlay={false}
+                  isMuted={true}
+                  onError={(error) => {
+                    console.error('[ChatRoomScreen] Video load error:', error);
+                    console.error('[ChatRoomScreen] Failed URL:', item.mediaUrl);
+                  }}
+                  onLoad={() => {
+                    console.log('[ChatRoomScreen] Video loaded successfully:', item.mediaUrl);
+                  }}
+                />
+              ) : (
+                <Image 
+                  source={{ uri: item.mediaUrl }} 
+                  style={styles.messageImage}
+                  onError={(e) => {
+                    console.error('[ChatRoomScreen] Image load error:', e.nativeEvent.error);
+                    console.error('[ChatRoomScreen] Failed URL:', item.mediaUrl);
+                  }}
+                  onLoad={() => {
+                    console.log('[ChatRoomScreen] Image loaded successfully:', item.mediaUrl);
+                  }}
+                />
+              )}
+            </View>
           )}
           {item.text ? (
             <Text style={[
@@ -345,12 +372,12 @@ export const ChatRoomScreen = ({ route, navigation }) => {
           }
         >
           <Menu.Item 
-            onPress={() => handleImagePick(true)} 
-            title="Take Photo" 
+            onPress={() => handleMediaPick(true)} 
+            title="Take Photo/Video" 
             leadingIcon="camera"
           />
           <Menu.Item 
-            onPress={() => handleImagePick(false)} 
+            onPress={() => handleMediaPick(false)} 
             title="Choose from Gallery" 
             leadingIcon="image"
           />
@@ -464,11 +491,20 @@ const styles = StyleSheet.create({
   otherText: {
     color: Colors.black,
   },
+  mediaContainer: {
+    marginBottom: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
   messageImage: {
     width: 200,
     height: 200,
     borderRadius: 8,
-    marginBottom: 8,
+  },
+  messageVideo: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
   },
   messageFooter: {
     flexDirection: 'row',

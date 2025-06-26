@@ -14,6 +14,7 @@ import FilterOverlay from './FilterOverlay';
 import ImageFilterProcessor from './ImageFilterProcessor';
 import TextOverlayTools from './TextOverlayTools';
 import ImageComposer from './ImageComposer';
+import VideoPlayer from './VideoPlayer';
 
 export {
   View,
@@ -32,4 +33,5 @@ export {
   ImageFilterProcessor,
   TextOverlayTools,
   ImageComposer,
+  VideoPlayer,
 };

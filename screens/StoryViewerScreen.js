@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthenticatedUserContext } from '../providers';
 import { Colors } from '../config';
 import { viewPost } from '../api';
+import { VideoPlayer } from '../components';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -91,12 +92,29 @@ export const StoryViewerScreen = ({ navigation, route }) => {
     <View style={styles.container}>
       <StatusBar hidden />
       
-      {/* Story Image */}
-      <Image
-        source={{ uri: currentPost?.mediaUrl }}
-        style={styles.storyImage}
-        resizeMode="contain"
-      />
+      {/* Story Media */}
+      {currentPost?.mediaType === 'video' ? (
+        <VideoPlayer
+          source={{ uri: currentPost?.mediaUrl }}
+          style={styles.storyMedia}
+          showControls={false}
+          autoPlay={true}
+          isMuted={true}
+          isLooping={false}
+          onPlaybackStatusUpdate={(status) => {
+            // Auto-advance when video ends if not manually controlling
+            if (status.didJustFinish) {
+              handleNext();
+            }
+          }}
+        />
+      ) : (
+        <Image
+          source={{ uri: currentPost?.mediaUrl }}
+          style={styles.storyMedia}
+          resizeMode="contain"
+        />
+      )}
       
       {/* Progress bars */}
       <View style={styles.progressContainer}>
@@ -164,7 +182,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  storyImage: {
+  storyMedia: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
     position: 'absolute',

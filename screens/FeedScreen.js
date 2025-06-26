@@ -15,6 +15,7 @@ import { AuthenticatedUserContext } from '../providers';
 import { Colors } from '../config';
 import { getFeedPosts, viewPost, getUserProfile } from '../api';
 import EmojiReactionBar from '../components/EmojiReactionBar';
+import { VideoPlayer } from '../components';
 
 export const FeedScreen = ({ navigation }) => {
   const { user } = useContext(AuthenticatedUserContext);
@@ -156,7 +157,18 @@ export const FeedScreen = ({ navigation }) => {
 
         {/* Media Preview */}
         <View style={[styles.mediaContainer, hasViewed && styles.viewedMedia]}>
-          <Image source={{ uri: item.mediaUrl }} style={styles.mediaImage} />
+          {item.mediaType === 'video' ? (
+            <VideoPlayer
+              source={{ uri: item.mediaUrl }}
+              style={styles.mediaImage}
+              showControls={true}
+              autoPlay={false}
+              isMuted={true}
+              isLooping={false}
+            />
+          ) : (
+            <Image source={{ uri: item.mediaUrl }} style={styles.mediaImage} />
+          )}
           
           {hasViewed && (
             <View style={styles.viewedOverlay}>

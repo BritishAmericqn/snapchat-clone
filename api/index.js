@@ -73,4 +73,13 @@ export {
   updateReportStatus,
   canUsersInteract,
   filterModerationContent
-} from './moderation.js'; 
+} from './moderation.js';
+
+// RAG API - Smart Features
+export {
+  generateCaptionSuggestions,
+  analyzeImageForEmbedding,
+  storeContentEmbedding,
+  searchSimilarContent,
+  getAnalyticsSummary
+} from './embeddings.js'; 

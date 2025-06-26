@@ -24,6 +24,8 @@ import {
   isIOSSimulator,
   hasCameraHardware
 } from '../utils/environmentDetection';
+import FaceDetectionOverlay, { getFaceDetectionSettings } from '../components/FaceDetectionOverlay';
+import FilterOverlay from '../components/FilterOverlay';
 
 // Conditional imports for native camera
 let CameraView = null;
@@ -75,12 +77,28 @@ export const CameraScreen = ({ navigation }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   
+  // Face detection state
+  const [faceDetectionEnabled, setFaceDetectionEnabled] = useState(true);
+  const [detectedFaces, setDetectedFaces] = useState([]);
+  const [faceDetectionSettings, setFaceDetectionSettings] = useState(null);
+  
+  // Filter state
+  const [selectedFilter, setSelectedFilter] = useState('none');
+  const [filtersEnabled, setFiltersEnabled] = useState(true);
+  
   // Camera reference for native camera
   const cameraRef = useRef(null);
   const recordingTimerRef = useRef(null);
 
   useEffect(() => {
     initializeCamera();
+    
+    // Initialize face detection settings
+    const faceSettings = getFaceDetectionSettings();
+    if (faceSettings) {
+      setFaceDetectionSettings(faceSettings);
+      console.log('[CameraScreen] Face detection settings initialized:', faceSettings);
+    }
     
     // Log environment info for debugging
     if (__DEV__) {
@@ -373,6 +391,46 @@ export const CameraScreen = ({ navigation }) => {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  // Face detection callback
+  const handleFacesDetected = (faces) => {
+    try {
+      setDetectedFaces(faces);
+      
+      if (faces.length > 0 && __DEV__) {
+        console.log(`[CameraScreen] Detected ${faces.length} face(s)`);
+        // Log additional face data for debugging
+        faces.forEach((face, index) => {
+          if (face.bounds) {
+            console.log(`Face ${index + 1}:`, {
+              bounds: face.bounds,
+              smiling: face.smilingProbability,
+              leftEye: face.leftEyeOpenProbability,
+              rightEye: face.rightEyeOpenProbability,
+            });
+          }
+        });
+      }
+    } catch (error) {
+      console.error('[CameraScreen] Error in face detection callback:', error);
+    }
+  };
+
+  const toggleFaceDetection = () => {
+    setFaceDetectionEnabled(!faceDetectionEnabled);
+  };
+
+  const handleFilterChange = (filterId) => {
+    setSelectedFilter(filterId);
+    console.log('[CameraScreen] Filter changed to:', filterId);
+  };
+
+  const toggleFilters = () => {
+    setFiltersEnabled(!filtersEnabled);
+    if (!filtersEnabled) {
+      setSelectedFilter('none'); // Reset filter when disabling
+    }
+  };
+
   // Permission check
   if (!isCameraReady) {
     return (
@@ -421,6 +479,9 @@ export const CameraScreen = ({ navigation }) => {
               console.error('[CameraScreen] Camera mount error:', error);
               Alert.alert('Camera Error', 'Failed to initialize camera');
             }}
+            // Face detection properties
+            onFacesDetected={faceDetectionEnabled ? handleFacesDetected : undefined}
+            faceDetectorSettings={faceDetectionEnabled ? faceDetectionSettings : undefined}
           />
         ) : (
           // Fallback placeholder for ImagePicker
@@ -444,6 +505,25 @@ export const CameraScreen = ({ navigation }) => {
               </Text>
             )}
           </View>
+        )}
+
+        {/* Face Detection Overlay */}
+        {isUsingNativeCamera && faceDetectionEnabled && (
+          <FaceDetectionOverlay
+            isEnabled={faceDetectionEnabled}
+            onFacesDetected={handleFacesDetected}
+            showBoundingBoxes={true}
+          />
+        )}
+
+        {/* Filter Overlay */}
+        {isUsingNativeCamera && filtersEnabled && (
+          <FilterOverlay
+            detectedFaces={detectedFaces}
+            selectedFilter={selectedFilter}
+            onFilterChange={handleFilterChange}
+            isEnabled={filtersEnabled}
+          />
         )}
 
         {/* Recording indicator */}
@@ -487,6 +567,32 @@ export const CameraScreen = ({ navigation }) => {
             >
               <Ionicons name="camera-reverse" size={24} color={Colors.white} />
             </TouchableOpacity>
+
+            {/* Face Detection Toggle */}
+            {isUsingNativeCamera && (
+              <TouchableOpacity
+                style={[
+                  styles.controlButton,
+                  faceDetectionEnabled && styles.controlButtonActive
+                ]}
+                onPress={toggleFaceDetection}
+              >
+                <Ionicons name="scan" size={24} color={Colors.white} />
+              </TouchableOpacity>
+            )}
+
+            {/* Filter Toggle */}
+            {isUsingNativeCamera && (
+              <TouchableOpacity
+                style={[
+                  styles.controlButton,
+                  filtersEnabled && styles.controlButtonActive
+                ]}
+                onPress={toggleFilters}
+              >
+                <Ionicons name="happy" size={24} color={Colors.white} />
+              </TouchableOpacity>
+            )}
           </View>
         </SafeAreaView>
 
@@ -705,6 +811,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  controlButtonActive: {
+    backgroundColor: Colors.snapYellow,
   },
   bottomControls: {
     position: 'absolute',

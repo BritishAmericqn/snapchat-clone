@@ -157,6 +157,7 @@ export const FeedScreen = ({ navigation }) => {
         {/* Media Preview */}
         <View style={[styles.mediaContainer, hasViewed && styles.viewedMedia]}>
           <Image source={{ uri: item.mediaUrl }} style={styles.mediaImage} />
+          
           {hasViewed && (
             <View style={styles.viewedOverlay}>
               <Ionicons name="checkmark-circle" size={50} color={Colors.white} />

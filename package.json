@@ -22,7 +22,10 @@
     "expo-constants": "~17.1.6",
     "expo-dev-client": "~5.2.1",
     "expo-face-detector": "^13.0.2",
+    "expo-gl": "~15.1.6",
+    "expo-gl-cpp": "^11.4.0",
     "expo-haptics": "~14.1.4",
+    "expo-image-manipulator": "~13.1.7",
     "expo-image-picker": "~16.1.4",
     "firebase": "^10.7.2",
     "formik": "2.1.4",
@@ -39,10 +42,12 @@
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
+    "react-native-svg": "15.11.2",
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "^0.20.0",
     "yup": "^1.6.1",
-    "zustand": "^5.0.5"
+    "zustand": "^5.0.5",
+    "react-native-view-shot": "4.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

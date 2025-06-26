@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthenticatedUserContext } from '../providers';
 import { Colors } from '../config';
 import { createPost } from '../api';
+import { TextOverlayTools, ImageComposer } from '../components';
 
 export const MediaPreviewScreen = ({ navigation, route }) => {
   const { user } = useContext(AuthenticatedUserContext);
@@ -27,18 +28,46 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
   const [deleteOnView, setDeleteOnView] = useState(false);
   const [expiresIn, setExpiresIn] = useState(24); // hours
   const [isPosting, setIsPosting] = useState(false);
+  
+  // Text overlay state
+  const [textOverlaysEnabled, setTextOverlaysEnabled] = useState(false);
+  const [textOverlays, setTextOverlays] = useState([]);
+  
+  // Refs for image composition
+  const imageComposerRef = useRef(null);
 
   const handlePost = async () => {
     try {
       setIsPosting(true);
       
+      let finalMediaUri = media.uri;
+      
+      // If there are text overlays, compose them into the image
+      if (textOverlays.length > 0 && imageComposerRef.current) {
+        console.log('[MediaPreview] Composing image with text overlays...');
+        try {
+          const compositeUri = await imageComposerRef.current.captureComposition();
+          finalMediaUri = compositeUri;
+          console.log('[MediaPreview] Using composite image:', compositeUri);
+        } catch (compositionError) {
+          console.error('[MediaPreview] Image composition failed:', compositionError);
+          Alert.alert(
+            'Warning', 
+            'Failed to apply text overlays. Posting original image instead.',
+            [{ text: 'Continue', style: 'default' }]
+          );
+          // Continue with original image if composition fails
+        }
+      }
+      
       const postData = {
-        mediaUri: media.uri,
+        mediaUri: finalMediaUri, // Use composite image if available
         mediaType: media.type,
         caption,
         visibility,
         expiresIn: expiresIn * 60 * 60 * 1000, // Convert hours to milliseconds
         deleteOnView,
+        // No longer save textOverlays separately - they're burned into the image
       };
       
       const postId = await createPost(user.uid, postData);
@@ -66,6 +95,31 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
     } finally {
       setIsPosting(false);
     }
+  };
+
+  // Handle text overlay callbacks
+  const handleTextAdded = (textOverlay) => {
+    setTextOverlays(prev => [...prev, textOverlay]);
+    console.log('[MediaPreview] Text overlay added:', textOverlay);
+  };
+
+  const handleTextUpdated = (updatedOverlay) => {
+    setTextOverlays(prev => 
+      prev.map(overlay => 
+        overlay.id === updatedOverlay.id ? updatedOverlay : overlay
+      )
+    );
+    console.log('[MediaPreview] Text overlay updated:', updatedOverlay);
+  };
+
+  const handleTextRemoved = (overlayId) => {
+    setTextOverlays(prev => prev.filter(overlay => overlay.id !== overlayId));
+    console.log('[MediaPreview] Text overlay removed:', overlayId);
+  };
+
+  const toggleTextOverlays = () => {
+    setTextOverlaysEnabled(!textOverlaysEnabled);
+    console.log('[MediaPreview] Text overlays toggled:', !textOverlaysEnabled);
   };
 
   const visibilityOptions = [
@@ -100,26 +154,61 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
           
           <Text style={styles.headerTitle}>New Snap</Text>
           
-          <TouchableOpacity
-            style={[styles.headerButton, styles.postButton]}
-            onPress={handlePost}
-            disabled={isPosting}
-          >
-            {isPosting ? (
-              <ActivityIndicator size="small" color={Colors.black} />
-            ) : (
-              <Text style={styles.postButtonText}>Post</Text>
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            {/* Text Overlay Toggle Button */}
+            <TouchableOpacity
+              style={[styles.headerButton, textOverlaysEnabled && styles.headerButtonActive]}
+              onPress={toggleTextOverlays}
+            >
+              <Ionicons 
+                name="text" 
+                size={24} 
+                color={textOverlaysEnabled ? Colors.snapYellow : Colors.white} 
+              />
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.headerButton, styles.postButton]}
+              onPress={handlePost}
+              disabled={isPosting}
+            >
+              {isPosting ? (
+                <ActivityIndicator size="small" color={Colors.black} />
+              ) : (
+                <Text style={styles.postButtonText}>Post</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView 
           style={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          {/* Media Preview */}
+          {/* Media Preview Container */}
           <View style={styles.mediaContainer}>
             <Image source={{ uri: media.uri }} style={styles.mediaPreview} />
+            
+            {/* Text Overlay Tools */}
+            {textOverlaysEnabled && (
+              <TextOverlayTools
+                isEnabled={textOverlaysEnabled}
+                onTextAdded={handleTextAdded}
+                onTextUpdated={handleTextUpdated}
+                onTextRemoved={handleTextRemoved}
+                style={styles.textOverlayContainer}
+              />
+            )}
+          </View>
+          
+          {/* Hidden Image Composer for final composition */}
+          <View style={styles.hiddenComposer}>
+            <ImageComposer
+              ref={imageComposerRef}
+              mediaUri={media.uri}
+              textOverlays={textOverlays}
+              style={styles.composerContainer}
+            />
           </View>
 
           {/* Caption Input */}
@@ -255,6 +344,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.white,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerButtonActive: {
+    backgroundColor: 'rgba(255, 252, 0, 0.1)',
+  },
   postButton: {
     backgroundColor: Colors.snapYellow,
     paddingHorizontal: 20,
@@ -378,5 +474,23 @@ const styles = StyleSheet.create({
   expirationOptionTextSelected: {
     color: Colors.snapYellow,
     fontWeight: '600',
+  },
+  textOverlayContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  hiddenComposer: {
+    position: 'absolute',
+    top: -1000, // Hide off-screen
+    left: 0,
+    width: '100%',
+    height: 300, // Same height as media container
+  },
+  composerContainer: {
+    width: '100%',
+    height: '100%',
   },
 }); 

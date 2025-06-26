@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useContext } from 'react';
 import { 
   View, 
   Text, 
@@ -6,11 +6,16 @@ import {
   TouchableOpacity, 
   TextInput, 
   Modal, 
-  Dimensions, 
+  Dimensions,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../config';
+import { generateTextOverlaySuggestions } from '../api';
+import { AuthenticatedUserContext } from '../providers';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -91,8 +96,10 @@ export const TextOverlayTools = ({
   onTextAdded,
   onTextUpdated,
   onTextRemoved,
+  imageUri, // Add imageUri prop for AI suggestions
   style 
 }) => {
+  const { user } = useContext(AuthenticatedUserContext);
   const [textOverlays, setTextOverlays] = useState([]);
   const [showTextEditor, setShowTextEditor] = useState(false);
   const [editingTextId, setEditingTextId] = useState(null);
@@ -100,6 +107,12 @@ export const TextOverlayTools = ({
   const [selectedStyle, setSelectedStyle] = useState('normal');
   const [selectedColor, setSelectedColor] = useState('#FFFFFF');
   const [selectedTextId, setSelectedTextId] = useState(null);
+
+  // AI Text Suggestions State
+  const [isGeneratingAISuggestions, setIsGeneratingAISuggestions] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [showAISuggestions, setShowAISuggestions] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
 
   // Track initial positions for drag gestures
   const gestureState = useRef({});
@@ -382,16 +395,189 @@ export const TextOverlayTools = ({
     );
   };
 
-  // Render add text button
+  // AI Text Suggestion Functions
+  const handleGenerateAISuggestions = async () => {
+    if (!imageUri) {
+      Alert.alert('Error', 'Image required for AI text suggestions');
+      return;
+    }
+
+    try {
+      setIsGeneratingAISuggestions(true);
+      console.log('[TextOverlayTools] Generating AI text suggestions for image:', imageUri);
+      
+      const result = await generateTextOverlaySuggestions(
+        imageUri,
+        user.uid,
+        { style: 'mixed' }
+      );
+      
+      console.log('[TextOverlayTools] 🎯 AI Text Suggestions Response:', JSON.stringify(result, null, 2));
+      
+      if (result.success && result.suggestions) {
+        setAiSuggestions(result.suggestions);
+        setAiAnalysis(result.analysis);
+        setShowAISuggestions(true);
+        console.log('[TextOverlayTools] ✅ Generated AI text suggestions:', result.suggestions);
+      } else {
+        // Use fallback suggestions if API fails
+        setAiSuggestions(result.suggestions || []);
+        setAiAnalysis(result.analysis || 'Analysis unavailable');
+        setShowAISuggestions(true);
+        console.log('[TextOverlayTools] ⚠️ Using fallback AI text suggestions:', result.suggestions);
+      }
+    } catch (error) {
+      console.error('[TextOverlayTools] Error generating AI text suggestions:', error);
+      Alert.alert(
+        'AI Suggestions Failed',
+        'Unable to generate smart text suggestions. Please try again or add text manually.',
+        [{ text: 'OK', style: 'default' }]
+      );
+    } finally {
+      setIsGeneratingAISuggestions(false);
+    }
+  };
+
+  const handleSelectAISuggestion = (suggestion) => {
+    // Convert API percentage coordinates to container coordinates
+    const suggestedX = (suggestion.position.x / 100) * MEDIA_CONTAINER_WIDTH;
+    const suggestedY = (suggestion.position.y / 100) * MEDIA_CONTAINER_HEIGHT;
+    
+    // Constrain within bounds
+    const finalX = Math.max(50, Math.min(MEDIA_CONTAINER_WIDTH - 50, suggestedX));
+    const finalY = Math.max(20, Math.min(MEDIA_CONTAINER_HEIGHT - 20, suggestedY));
+
+    // Map AI style to text overlay style
+    const styleMap = {
+      'motivational': 'bold',
+      'aesthetic': 'normal',
+      'descriptive': 'background',
+      'minimal': 'outline'
+    };
+    
+    const textStyle = styleMap[suggestion.style] || 'normal';
+
+    const newTextId = generateTextId();
+    const newTextOverlay = {
+      id: newTextId,
+      text: suggestion.text,
+      style: { ...TEXT_STYLES[textStyle] },
+      color: '#FFFFFF', // Default to white, user can change
+      position: {
+        x: finalX,
+        y: finalY,
+      },
+      isSelected: false,
+      aiGenerated: true, // Mark as AI generated
+      aiStyle: suggestion.style,
+      aiReasoning: suggestion.position.reasoning,
+    };
+
+    // Apply color to style
+    newTextOverlay.style.color = '#FFFFFF';
+
+    setTextOverlays(prev => [...prev, newTextOverlay]);
+    setShowAISuggestions(false);
+
+    // Notify parent component
+    if (onTextAdded) {
+      onTextAdded(newTextOverlay);
+    }
+
+    console.log('[TextOverlayTools] Added AI-suggested text overlay:', newTextOverlay);
+    console.log('[TextOverlayTools] AI reasoning:', suggestion.position.reasoning);
+  };
+
+  const handleDismissAISuggestions = () => {
+    setShowAISuggestions(false);
+  };
+
+  // Render AI suggestion chips
+  const renderAISuggestions = () => {
+    if (!showAISuggestions || aiSuggestions.length === 0) return null;
+
+    return (
+      <View style={styles.aiSuggestionsContainer}>
+        <View style={styles.aiSuggestionsHeader}>
+          <View style={styles.aiSuggestionsTitle}>
+            <Ionicons name="sparkles" size={16} color={Colors.snapYellow} />
+            <Text style={styles.aiSuggestionsText}>AI Text Suggestions</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.dismissButton}
+            onPress={handleDismissAISuggestions}
+          >
+            <Ionicons name="close" size={16} color={Colors.lightGray} />
+          </TouchableOpacity>
+        </View>
+        
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.suggestionsScroll}
+        >
+          {aiSuggestions.map((suggestion, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.suggestionChip,
+                styles[`suggestionChip${suggestion.style.charAt(0).toUpperCase() + suggestion.style.slice(1)}`]
+              ]}
+              onPress={() => handleSelectAISuggestion(suggestion)}
+            >
+              <Text style={styles.suggestionText}>
+                {suggestion.text}
+              </Text>
+              <View style={styles.suggestionMeta}>
+                <Text style={styles.suggestionStyle}>
+                  {suggestion.style}
+                </Text>
+                <Ionicons name="add-circle" size={16} color={Colors.snapYellow} />
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        
+        {aiAnalysis && (
+          <Text style={styles.aiAnalysisText}>
+            💡 {aiAnalysis}
+          </Text>
+        )}
+      </View>
+    );
+  };
+
+  // Update add text button to include AI suggestions
   const renderAddTextButton = () => {
     return (
-      <TouchableOpacity
-        style={styles.addTextButton}
-        onPress={() => setShowTextEditor(true)}
-      >
-        <Ionicons name="text" size={24} color={Colors.white} />
-        <Text style={styles.addTextButtonText}>Text</Text>
-      </TouchableOpacity>
+      <View style={styles.addTextButtonContainer}>
+        {/* AI Suggest Button */}
+        {imageUri && (
+          <TouchableOpacity
+            style={[styles.addTextButton, styles.aiSuggestButton]}
+            onPress={handleGenerateAISuggestions}
+            disabled={isGeneratingAISuggestions}
+          >
+            {isGeneratingAISuggestions ? (
+              <ActivityIndicator size="small" color={Colors.snapYellow} />
+            ) : (
+              <Ionicons name="sparkles" size={20} color={Colors.snapYellow} />
+            )}
+            <Text style={styles.aiSuggestButtonText}>
+              {isGeneratingAISuggestions ? 'AI...' : '✨ AI Suggest'}
+            </Text>
+          </TouchableOpacity>
+        )}
+        
+        {/* Manual Text Button */}
+        <TouchableOpacity
+          style={styles.addTextButton}
+          onPress={() => setShowTextEditor(true)}
+        >
+          <Ionicons name="text" size={24} color={Colors.white} />
+          <Text style={styles.addTextButtonText}>Text</Text>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -402,7 +588,10 @@ export const TextOverlayTools = ({
       {/* Render existing text overlays */}
       {textOverlays.map(renderTextOverlay)}
 
-      {/* Add text button */}
+      {/* AI Suggestions */}
+      {renderAISuggestions()}
+
+      {/* Add text buttons */}
       {renderAddTextButton()}
 
       {/* Text editor modal */}
@@ -432,10 +621,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 10,
   },
-  addTextButton: {
+  addTextButtonContainer: {
     position: 'absolute',
     bottom: 60,
     right: 20,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  addTextButton: {
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -444,6 +637,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addTextButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  aiSuggestButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  aiSuggestButtonText: {
     color: Colors.white,
     fontSize: 14,
     fontWeight: '500',
@@ -555,6 +762,88 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.black,
   },
+     aiSuggestionsContainer: {
+     position: 'absolute',
+     top: 20,
+     left: 15,
+     right: 15,
+     backgroundColor: 'rgba(0, 0, 0, 0.85)',
+     borderRadius: 12,
+     padding: 15,
+     maxHeight: 200,
+   },
+   aiSuggestionsHeader: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     justifyContent: 'space-between',
+     marginBottom: 10,
+   },
+   aiSuggestionsTitle: {
+     flexDirection: 'row',
+     alignItems: 'center',
+   },
+   aiSuggestionsText: {
+     fontSize: 16,
+     fontWeight: '600',
+     color: Colors.white,
+     marginLeft: 8,
+   },
+   dismissButton: {
+     padding: 5,
+   },
+   suggestionsScroll: {
+     marginBottom: 10,
+   },
+   suggestionChip: {
+     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+     paddingHorizontal: 12,
+     paddingVertical: 8,
+     borderRadius: 16,
+     marginRight: 8,
+     borderWidth: 1,
+     borderColor: 'rgba(255, 252, 0, 0.3)',
+     minWidth: 100,
+   },
+   suggestionChipMotivational: {
+     borderColor: '#FF6B6B',
+     backgroundColor: 'rgba(255, 107, 107, 0.1)',
+   },
+   suggestionChipAesthetic: {
+     borderColor: '#4ECDC4',
+     backgroundColor: 'rgba(78, 205, 196, 0.1)',
+   },
+   suggestionChipDescriptive: {
+     borderColor: '#45B7D1',
+     backgroundColor: 'rgba(69, 183, 209, 0.1)',
+   },
+   suggestionChipMinimal: {
+     borderColor: '#96CEB4',
+     backgroundColor: 'rgba(150, 206, 180, 0.1)',
+   },
+   suggestionText: {
+     fontSize: 14,
+     fontWeight: '500',
+     color: Colors.white,
+     textAlign: 'center',
+     marginBottom: 4,
+   },
+   suggestionMeta: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     justifyContent: 'space-between',
+   },
+   suggestionStyle: {
+     fontSize: 11,
+     fontWeight: '400',
+     color: Colors.lightGray,
+     textTransform: 'capitalize',
+   },
+   aiAnalysisText: {
+     color: Colors.lightGray,
+     fontSize: 12,
+     fontStyle: 'italic',
+     textAlign: 'center',
+   },
 });
 
 export default TextOverlayTools; 

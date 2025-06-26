@@ -23,6 +23,7 @@
     "expo-constants": "~17.1.6",
     "expo-dev-client": "~5.2.1",
     "expo-face-detector": "^13.0.2",
+    "expo-file-system": "~18.1.10",
     "expo-gl": "~15.1.6",
     "expo-gl-cpp": "^11.4.0",
     "expo-haptics": "~14.1.4",
@@ -54,6 +55,7 @@
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@react-native-community/eslint-config": "^3.2.0",
+    "babel-plugin-dotenv": "^0.1.1",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-react": "^7.37.5",

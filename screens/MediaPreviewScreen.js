@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthenticatedUserContext } from '../providers';
 import { Colors } from '../config';
 import { createPost, generateCaptionSuggestions } from '../api';
-import { TextOverlayTools, ImageComposer, VideoPlayer } from '../components';
+import { TextOverlayTools, ImageComposer, VideoPlayer, TagSuggestionSection } from '../components';
 
 export const MediaPreviewScreen = ({ navigation, route }) => {
   const { user } = useContext(AuthenticatedUserContext);
@@ -34,6 +34,11 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
   const [captionSuggestions, setCaptionSuggestions] = useState([]);
   const [showCaptionSuggestions, setShowCaptionSuggestions] = useState(false);
   const [selectedCaptionStyle, setSelectedCaptionStyle] = useState('casual');
+  
+  // RAG Tag Suggestions State
+  const [tagSuggestions, setTagSuggestions] = useState([]);
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false);
   
   // Text overlay state
   const [textOverlaysEnabled, setTextOverlaysEnabled] = useState(false);
@@ -140,15 +145,39 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
         { style: selectedCaptionStyle }
       );
       
+      console.log('[MediaPreview] 🎯 API RESPONSE COMPLETE:', JSON.stringify(result, null, 2));
+      
       if (result.success && result.captions) {
         setCaptionSuggestions(result.captions);
         setShowCaptionSuggestions(true);
-        console.log('[MediaPreview] Generated captions:', result.captions);
+        console.log('[MediaPreview] ✅ Generated captions:', result.captions);
+        
+        // Extract and display tag suggestions
+        console.log('[MediaPreview] 🏷️ Checking tags:', result.tags, 'Length:', result.tags?.length);
+        if (result.tags && result.tags.length > 0) {
+          setTagSuggestions(result.tags);
+          setShowTagSuggestions(true);
+          console.log('[MediaPreview] ✅ Setting tag suggestions:', result.tags);
+          console.log('[MediaPreview] ✅ showTagSuggestions set to: true');
+        } else {
+          console.log('[MediaPreview] ❌ No tags in successful response');
+        }
       } else {
         // Use fallback captions if API fails
         setCaptionSuggestions(result.captions || []);
         setShowCaptionSuggestions(true);
-        console.log('[MediaPreview] Using fallback captions:', result.captions);
+        console.log('[MediaPreview] ⚠️ Using fallback captions:', result.captions);
+        
+        // Show fallback tags if available
+        console.log('[MediaPreview] 🏷️ Checking fallback tags:', result.tags, 'Length:', result.tags?.length);
+        if (result.tags && result.tags.length > 0) {
+          setTagSuggestions(result.tags);
+          setShowTagSuggestions(true);
+          console.log('[MediaPreview] ✅ Setting fallback tag suggestions:', result.tags);
+          console.log('[MediaPreview] ✅ showTagSuggestions set to: true');
+        } else {
+          console.log('[MediaPreview] ❌ No fallback tags available');
+        }
       }
     } catch (error) {
       console.error('[MediaPreview] Error generating captions:', error);
@@ -174,9 +203,50 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
 
   const handleCaptionStyleChange = (style) => {
     setSelectedCaptionStyle(style);
-    // Regenerate captions with new style if suggestions are visible
-    if (showCaptionSuggestions) {
+    
+    // ALWAYS regenerate if suggestions have been shown at least once
+    // This fixes the issue where style changes don't regenerate captions
+    if (showCaptionSuggestions || captionSuggestions.length > 0) {
       handleGenerateCaptions();
+    }
+  };
+
+  // RAG Tag Suggestion Functions
+  const handleTagToggle = (tag) => {
+    setSelectedTags(prev => {
+      const isSelected = prev.includes(tag);
+      let newSelectedTags;
+      
+      if (isSelected) {
+        // Remove tag
+        newSelectedTags = prev.filter(t => t !== tag);
+      } else {
+        // Add tag
+        newSelectedTags = [...prev, tag];
+      }
+      
+      // Update caption with selected tags
+      updateCaptionWithTags(newSelectedTags);
+      
+      return newSelectedTags;
+    });
+  };
+
+  const handleDismissTagSuggestions = () => {
+    setShowTagSuggestions(false);
+  };
+
+  const updateCaptionWithTags = (tags) => {
+    // Remove existing tags from caption
+    const captionWithoutTags = caption.replace(/#\w+/g, '').trim();
+    
+    // Add selected tags to caption
+    const tagString = tags.length > 0 ? ' ' + tags.join(' ') : '';
+    const newCaption = (captionWithoutTags + tagString).trim();
+    
+    // Ensure we don't exceed character limit
+    if (newCaption.length <= 200) {
+      setCaption(newCaption);
     }
   };
 
@@ -264,6 +334,7 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
             {textOverlaysEnabled && media.type === 'image' && (
               <TextOverlayTools
                 isEnabled={textOverlaysEnabled}
+                imageUri={media.uri}
                 onTextAdded={handleTextAdded}
                 onTextUpdated={handleTextUpdated}
                 onTextRemoved={handleTextRemoved}
@@ -355,6 +426,17 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
                   </TouchableOpacity>
                 ))}
               </View>
+            )}
+            
+            {/* Tag Suggestions */}
+            {media.type === 'image' && (
+              <TagSuggestionSection
+                tags={tagSuggestions}
+                selectedTags={selectedTags}
+                onTagToggle={handleTagToggle}
+                onDismiss={handleDismissTagSuggestions}
+                visible={showTagSuggestions}
+              />
             )}
             
             <TextInput

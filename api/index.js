@@ -78,6 +78,7 @@ export {
 // RAG API - Smart Features
 export {
   generateCaptionSuggestions,
+  generateTextOverlaySuggestions,
   analyzeImageForEmbedding,
   storeContentEmbedding,
   searchSimilarContent,

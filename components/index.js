@@ -15,6 +15,7 @@ import ImageFilterProcessor from './ImageFilterProcessor';
 import TextOverlayTools from './TextOverlayTools';
 import ImageComposer from './ImageComposer';
 import VideoPlayer from './VideoPlayer';
+import { TagSuggestionSection } from './TagSuggestionSection';
 
 export {
   View,
@@ -34,4 +35,5 @@ export {
   TextOverlayTools,
   ImageComposer,
   VideoPlayer,
+  TagSuggestionSection,
 };

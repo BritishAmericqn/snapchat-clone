@@ -12,8 +12,9 @@ import { Colors } from '../config';
 
 /**
  * ConversationStarterChips Component
- * Displays AI-generated conversation starter suggestions for direct messages
- * Follows the same UI patterns as TagSuggestionSection and EmojiReactionBar
+ * Displays AI-generated conversation starter suggestions with advanced intelligence
+ * Now includes Features 41-45: conversation history, timing intelligence, enhanced context, 
+ * activity-based topics, and success tracking
  */
 export const ConversationStarterChips = ({ 
   suggestions = [], 
@@ -22,7 +23,12 @@ export const ConversationStarterChips = ({
   visible = false,
   loading = false,
   contextAnalysis = '',
-  connectionStrength = 'moderate'
+  connectionStrength = 'moderate',
+  // Enhanced intelligence props (Features 41-45)
+  conversationStage = 'new',
+  timingRecommendation = null,
+  successAnalytics = null,
+  enhancedFeatures = {}
 }) => {
   console.log('[ConversationStarterChips] 💬 Component called with:', {
     suggestions,
@@ -75,10 +81,32 @@ export const ConversationStarterChips = ({
     }
   };
 
+  const getStageIcon = (stage) => {
+    switch (stage) {
+      case 'new': return '🆕';
+      case 'early': return '🌱'; 
+      case 'active': return '💬';
+      case 'dormant': return '💤';
+      case 'lapsed': return '⏰';
+      default: return '💭';
+    }
+  };
+
+  const getIntelligenceIcon = () => {
+    const activeFeatures = Object.values(enhancedFeatures || {}).filter(Boolean).length;
+    if (activeFeatures >= 4) return '🧠'; // All features active
+    if (activeFeatures >= 2) return '🎯'; // Some features active
+    return '🤖'; // Basic AI
+  };
+
   const getCategoryIcon = (category) => {
     switch (category) {
+      case 'conversation_history': return '📈';
+      case 'shared_activity': return '🎯';  
+      case 'mutual_interest': return '🤝';
+      case 'timing_based': return '⏰';
       case 'mutual_friends': return '👥';
-      case 'shared_interests': return '🎯';
+      case 'shared_interests': return '💝';
       case 'profile_based': return '👤';
       case 'general_friendly': return '😊';
       default: return '💬';
@@ -99,8 +127,20 @@ export const ConversationStarterChips = ({
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.connectionIcon}>{getConnectionIcon()}</Text>
-          <Text style={styles.title}>Ice Breakers</Text>
+          <Text style={styles.connectionIcon}>{getIntelligenceIcon()}</Text>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>Smart Conversation Starters</Text>
+            <View style={styles.intelligenceIndicators}>
+              <Text style={styles.stageIndicator}>
+                {getStageIcon(conversationStage)} {conversationStage}
+              </Text>
+              {enhancedFeatures && Object.values(enhancedFeatures).some(Boolean) && (
+                <Text style={styles.aiIndicator}>
+                  AI • {Object.values(enhancedFeatures).filter(Boolean).length}/4 features
+                </Text>
+              )}
+            </View>
+          </View>
         </View>
         <TouchableOpacity
           style={styles.dismissButton}
@@ -114,6 +154,41 @@ export const ConversationStarterChips = ({
         <Text style={styles.contextText}>{contextAnalysis}</Text>
       )}
       
+      {/* Enhanced Intelligence Display */}
+      {(timingRecommendation || successAnalytics) && (
+        <View style={styles.intelligenceSection}>
+          {timingRecommendation && (
+            <View style={styles.intelligenceRow}>
+              <Text style={styles.intelligenceIcon}>⏰</Text>
+              <Text style={styles.intelligenceText}>
+                Timing: {timingRecommendation}
+              </Text>
+            </View>
+          )}
+          
+          {successAnalytics && successAnalytics.totalTracked > 0 && (
+            <View style={styles.intelligenceRow}>
+              <Text style={styles.intelligenceIcon}>📊</Text>
+              <Text style={styles.intelligenceText}>
+                Success Rate: {successAnalytics.successRate}% ({successAnalytics.totalTracked} tracked)
+              </Text>
+            </View>
+          )}
+          
+          {enhancedFeatures && Object.values(enhancedFeatures).filter(Boolean).length > 0 && (
+            <View style={styles.intelligenceRow}>
+              <Text style={styles.intelligenceIcon}>🎯</Text>
+              <Text style={styles.intelligenceText}>
+                Enhanced with: {Object.entries(enhancedFeatures)
+                  .filter(([_, active]) => active)
+                  .map(([feature, _]) => feature.replace(/([A-Z])/g, ' $1').toLowerCase())
+                  .join(', ')}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+      
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
@@ -123,6 +198,9 @@ export const ConversationStarterChips = ({
         {suggestions.map((suggestion, index) => {
           const categoryColor = getCategoryColor(suggestion.category);
           const categoryIcon = getCategoryIcon(suggestion.category);
+          const confidence = suggestion.confidence || 'medium';
+          const confidenceColor = confidence === 'high' ? '#4CAF50' : 
+                                 confidence === 'medium' ? '#FF9800' : '#9E9E9E';
           
           return (
             <TouchableOpacity
@@ -144,6 +222,14 @@ export const ConversationStarterChips = ({
                     {suggestion.category.replace('_', ' ')}
                   </Text>
                 </View>
+                <View style={[
+                  styles.confidenceBadge,
+                  { backgroundColor: confidenceColor }
+                ]}>
+                  <Text style={styles.confidenceText}>
+                    {confidence}
+                  </Text>
+                </View>
               </View>
               
               <Text style={styles.suggestionText}>
@@ -152,8 +238,29 @@ export const ConversationStarterChips = ({
               
               {suggestion.reasoning && (
                 <Text style={styles.reasoningText}>
-                  {suggestion.reasoning}
+                  💡 {suggestion.reasoning}
                 </Text>
+              )}
+              
+              {/* Enhanced metadata display */}
+              {suggestion.intelligenceUsed && Object.values(suggestion.intelligenceUsed).some(Boolean) && (
+                <View style={styles.intelligenceUsedContainer}>
+                  <Text style={styles.intelligenceUsedText}>
+                    AI Features: {Object.entries(suggestion.intelligenceUsed)
+                      .filter(([_, used]) => used)
+                      .map(([feature, _]) => {
+                        switch(feature) {
+                          case 'conversationHistory': return '📈';
+                          case 'enhancedContext': return '🎭';
+                          case 'timingIntelligence': return '⏰';
+                          case 'activityBased': return '🎯';
+                          default: return '🤖';
+                        }
+                      })
+                      .join(' ')
+                    }
+                  </Text>
+                </View>
               )}
               
               <View style={styles.chipFooter}>
@@ -165,6 +272,11 @@ export const ConversationStarterChips = ({
                 <Text style={[styles.tapToSendText, { color: categoryColor }]}>
                   Tap to send
                 </Text>
+                {suggestion.metadata?.basedOnActivities > 0 && (
+                  <Text style={styles.activityIndicator}>
+                    +{suggestion.metadata.basedOnActivities} activities
+                  </Text>
+                )}
               </View>
             </TouchableOpacity>
           );
@@ -210,10 +322,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginRight: 6,
   },
+  titleContainer: {
+    flexDirection: 'column',
+  },
   title: {
     color: Colors.white,
     fontSize: 14,
     fontWeight: '600',
+  },
+  intelligenceIndicators: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  stageIndicator: {
+    color: Colors.lightGray,
+    fontSize: 11,
+    marginRight: 8,
+    textTransform: 'capitalize',
+  },
+  aiIndicator: {
+    color: Colors.snapYellow,
+    fontSize: 10,
+    fontWeight: '500',
   },
   dismissButton: {
     padding: 4,
@@ -227,6 +358,29 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: 16,
   },
+  intelligenceSection: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  intelligenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  intelligenceIcon: {
+    fontSize: 12,
+    marginRight: 6,
+  },
+  intelligenceText: {
+    color: Colors.lightGray,
+    fontSize: 11,
+    flex: 1,
+    lineHeight: 14,
+  },
   suggestionsScroll: {
     marginHorizontal: -12,
   },
@@ -239,8 +393,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 12,
     marginRight: 12,
-    minWidth: 200,
-    maxWidth: 280,
+    minWidth: 220,
+    maxWidth: 300,
   },
   chipHeader: {
     flexDirection: 'row',
@@ -264,6 +418,18 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
     textAlign: 'center',
   },
+  confidenceBadge: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 4,
+  },
+  confidenceText: {
+    color: Colors.white,
+    fontSize: 9,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
   suggestionText: {
     color: Colors.white,
     fontSize: 14,
@@ -278,6 +444,19 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontStyle: 'italic',
   },
+  intelligenceUsedContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+  },
+  intelligenceUsedText: {
+    color: Colors.snapYellow,
+    fontSize: 10,
+    fontWeight: '500',
+  },
   chipFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -290,5 +469,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     marginLeft: 4,
+  },
+  activityIndicator: {
+    fontSize: 9,
+    color: Colors.lightGray,
+    marginLeft: 8,
+    fontStyle: 'italic',
   },
 }); 

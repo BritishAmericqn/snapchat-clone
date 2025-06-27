@@ -37,7 +37,11 @@ import {
 import { Colors, db } from '../config';
 import * as ImagePicker from 'expo-image-picker';
 import { VideoPlayer, ConversationStarterChips } from '../components';
-import { generateConversationStarters } from '../api/embeddings';
+import { 
+  generateConversationStarters, 
+  trackConversationStarterSuccess,
+  getConversationSuccessAnalytics 
+} from '../api/embeddings';
 
 export const ChatRoomScreen = ({ route, navigation }) => {
   const { user } = useContext(AuthenticatedUserContext);
@@ -58,6 +62,12 @@ export const ChatRoomScreen = ({ route, navigation }) => {
   const [showConversationStarters, setShowConversationStarters] = useState(false);
   const [loadingConversationStarters, setLoadingConversationStarters] = useState(false);
   const [conversationContext, setConversationContext] = useState(null);
+  
+  // Enhanced conversation intelligence state (Features 41-45)
+  const [conversationIntelligence, setConversationIntelligence] = useState(null);
+  const [timingRecommendation, setTimingRecommendation] = useState(null);
+  const [enhancedContext, setEnhancedContext] = useState(null);
+  const [successAnalytics, setSuccessAnalytics] = useState(null);
   
   const flatListRef = useRef(null);
 
@@ -379,7 +389,7 @@ export const ChatRoomScreen = ({ route, navigation }) => {
       return;
     }
     
-    console.log('[ChatRoomScreen] 🤖 Generating conversation starters...');
+    console.log('[ChatRoomScreen] 🤖 Generating enhanced conversation starters...');
     setLoadingConversationStarters(true);
     
     try {
@@ -387,24 +397,53 @@ export const ChatRoomScreen = ({ route, navigation }) => {
         category: 'mixed' // Generate variety of starter types
       });
       
-      console.log('[ChatRoomScreen] 📝 Generated result:', result);
+      console.log('[ChatRoomScreen] 📝 Enhanced result:', result);
       
       if (result.success) {
-        console.log('[ChatRoomScreen] ✅ Conversation starters generated:', result.suggestions.length);
+        console.log('[ChatRoomScreen] ✅ Enhanced conversation starters generated:', result.suggestions.length);
         setConversationStarters(result.suggestions);
         setConversationContext(result.context);
+        
+        // Store enhanced intelligence data (Features 41-45)
+        setConversationIntelligence(result.intelligence);
+        setTimingRecommendation(result.context?.timingRecommendation);
+        setEnhancedContext(result.context);
+        
         setShowConversationStarters(true);
+        
+        // Load success analytics for optimization insights
+        try {
+          const analytics = getConversationSuccessAnalytics();
+          setSuccessAnalytics(analytics);
+          console.log('[ChatRoomScreen] 📊 Success analytics loaded:', analytics);
+        } catch (analyticsError) {
+          console.log('[ChatRoomScreen] ⚠️ Analytics loading failed:', analyticsError);
+        }
+        
       } else {
         console.log('[ChatRoomScreen] ⚠️ Using fallback conversation starters:', result.error);
         setConversationStarters(result.suggestions || []);
+        setConversationContext(result.context);
         setShowConversationStarters(true);
       }
     } catch (error) {
-      console.error('[ChatRoomScreen] ❌ Error generating conversation starters:', error);
+      console.error('[ChatRoomScreen] ❌ Error generating enhanced conversation starters:', error);
       // Show fallback starters even on error
       setConversationStarters([
-        { id: 'fallback1', text: 'Hey! How has your day been?', category: 'general' },
-        { id: 'fallback2', text: 'What have you been up to lately?', category: 'general' }
+        { 
+          id: 'fallback1', 
+          text: 'Hey! How has your day been?', 
+          category: 'general',
+          reasoning: 'Friendly general starter',
+          confidence: 'medium'
+        },
+        { 
+          id: 'fallback2', 
+          text: 'What have you been up to lately?', 
+          category: 'general',
+          reasoning: 'Open-ended conversation starter',
+          confidence: 'medium'
+        }
       ]);
       setShowConversationStarters(true);
     } finally {
@@ -412,8 +451,8 @@ export const ChatRoomScreen = ({ route, navigation }) => {
     }
   };
 
-  const handleConversationStarterSelect = (suggestion) => {
-    console.log('[ChatRoomScreen] 🎯 Conversation starter selected:', suggestion.text);
+  const handleConversationStarterSelect = async (suggestion) => {
+    console.log('[ChatRoomScreen] 🎯 Enhanced conversation starter selected:', suggestion.text);
     
     // Set the suggestion text as the message
     setMessageText(suggestion.text);
@@ -421,12 +460,51 @@ export const ChatRoomScreen = ({ route, navigation }) => {
     // Hide conversation starters
     setShowConversationStarters(false);
     
-    // Analytics: Track suggestion selection
+    // FEATURE 45: Track conversation starter success for optimization
     try {
-      // Could add analytics tracking here in the future
-      console.log('[ChatRoomScreen] 📊 Analytics: Conversation starter used -', suggestion.category);
+      if (suggestion.id && chatId) {
+        console.log('[ChatRoomScreen] 📊 Tracking conversation starter success...');
+        const trackingResult = await trackConversationStarterSuccess(
+          suggestion.id,
+          chatId,
+          user.uid,
+          otherUser.uid
+        );
+        
+        if (trackingResult.success) {
+          console.log('[ChatRoomScreen] ✅ Success tracking initiated:', trackingResult.trackingId);
+          
+          // Update analytics display after tracking
+          setTimeout(() => {
+            try {
+              const updatedAnalytics = getConversationSuccessAnalytics();
+              setSuccessAnalytics(updatedAnalytics);
+              console.log('[ChatRoomScreen] 📈 Analytics updated after tracking');
+            } catch (error) {
+              console.log('[ChatRoomScreen] ⚠️ Analytics update failed:', error);
+            }
+          }, 1000);
+          
+        } else {
+          console.log('[ChatRoomScreen] ⚠️ Success tracking failed:', trackingResult.error);
+        }
+      }
+    } catch (trackingError) {
+      console.error('[ChatRoomScreen] ❌ Error tracking conversation starter success:', trackingError);
+    }
+    
+    // Analytics: Track suggestion selection with enhanced metadata
+    try {
+      console.log('[ChatRoomScreen] 📊 Analytics: Enhanced conversation starter used', {
+        category: suggestion.category,
+        confidence: suggestion.confidence,
+        intelligenceUsed: suggestion.intelligenceUsed,
+        conversationStage: suggestion.metadata?.conversationStage,
+        connectionStrength: suggestion.metadata?.connectionStrength,
+        basedOnActivities: suggestion.metadata?.basedOnActivities
+      });
     } catch (error) {
-      console.log('[ChatRoomScreen] ⚠️ Analytics tracking failed:', error);
+      console.log('[ChatRoomScreen] ⚠️ Enhanced analytics tracking failed:', error);
     }
   };
 
@@ -479,7 +557,7 @@ export const ChatRoomScreen = ({ route, navigation }) => {
         contentContainerStyle={styles.messagesList}
       />
       
-      {/* Conversation Starter Suggestions */}
+      {/* Enhanced Conversation Starter Suggestions with Intelligence */}
       <ConversationStarterChips
         suggestions={conversationStarters}
         onSuggestionSelect={handleConversationStarterSelect}
@@ -488,6 +566,16 @@ export const ChatRoomScreen = ({ route, navigation }) => {
         loading={loadingConversationStarters}
         contextAnalysis={conversationContext?.contextAnalysis}
         connectionStrength={conversationContext?.connectionStrength || 'moderate'}
+        // Enhanced intelligence data for UI
+        conversationStage={conversationContext?.conversationStage}
+        timingRecommendation={timingRecommendation}
+        successAnalytics={successAnalytics}
+        enhancedFeatures={{
+          conversationHistory: !!conversationIntelligence?.conversationHistory,
+          enhancedContext: !!conversationIntelligence?.enhancedContext,
+          timingIntelligence: !!conversationIntelligence?.timingIntelligence,
+          activityTopics: !!conversationIntelligence?.activityTopics
+        }}
       />
       
       <View style={styles.inputContainer}>

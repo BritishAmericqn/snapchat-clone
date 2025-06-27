@@ -1315,4 +1315,292 @@ const getFallbackConversationStarters = (category = 'general_friendly') => {
   };
   
   return fallbacks[category] || fallbacks.general_friendly;
+};
+
+/**
+ * Generate smart filter recommendations based on image analysis
+ * @param {string} imageUri - URI of the image to analyze
+ * @param {string} userId - User ID for analytics and rate limiting
+ * @param {Object} options - Additional options for filter recommendations
+ * @returns {Promise<Object>} - Filter recommendations and analysis
+ */
+export const generateFilterRecommendations = async (imageUri, userId, options = {}) => {
+  try {
+    console.log('[Embeddings] 🎭 Generating smart filter recommendations for image:', imageUri);
+    
+    // Rate limiting check
+    if (!checkRateLimit(userId, 'filterRecommendation')) {
+      throw new Error('Rate limit exceeded. Please try again later.');
+    }
+    
+    const openai = getOpenAIClient();
+    const config = RAG_CONFIG.openai;
+    
+    // Prepare image for analysis
+    const imageData = await prepareImageForAnalysis(imageUri);
+    
+    // Create prompt for filter recommendation
+    const prompt = createFilterRecommendationPrompt(options);
+    
+    // Call OpenAI Vision API
+    const response = await openai.chat.completions.create({
+      model: config.model,
+      temperature: 0.8, // Balanced creativity for recommendations
+      max_tokens: 400,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: prompt
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageData,
+                detail: config.imageDetail
+              }
+            }
+          ]
+        }
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "filter_recommendations",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              recommendations: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    filterId: {
+                      type: "string",
+                      description: "ID of the recommended filter"
+                    },
+                    score: {
+                      type: "number",
+                      minimum: 0,
+                      maximum: 100,
+                      description: "Effectiveness score for this filter (0-100)"
+                    },
+                    reasoning: {
+                      type: "string",
+                      description: "Why this filter is recommended"
+                    },
+                    category: {
+                      type: "string",
+                      enum: ["lighting", "mood", "facial", "scene"],
+                      description: "Category of recommendation"
+                    }
+                  },
+                  required: ["filterId", "score", "reasoning", "category"],
+                  additionalProperties: false
+                },
+                minItems: 1,
+                maxItems: 5
+              },
+              analysis: {
+                type: "object",
+                properties: {
+                  lighting: {
+                    type: "string",
+                    enum: ["bright", "dim", "golden_hour", "indoor", "outdoor", "artificial"],
+                    description: "Lighting condition analysis"
+                  },
+                  mood: {
+                    type: "string", 
+                    enum: ["happy", "serious", "playful", "romantic", "energetic", "calm"],
+                    description: "Overall mood of the image"
+                  },
+                  scene: {
+                    type: "string",
+                    enum: ["selfie", "group", "outdoor", "indoor", "close_up", "wide_shot"],
+                    description: "Scene type analysis"
+                  },
+                  faces_detected: {
+                    type: "boolean",
+                    description: "Whether faces are detected in the image"
+                  },
+                  primary_colors: {
+                    type: "array",
+                    items: {
+                      type: "string"
+                    },
+                    description: "Dominant colors in the image"
+                  }
+                },
+                required: ["lighting", "mood", "scene", "faces_detected", "primary_colors"],
+                additionalProperties: false
+              },
+              confidence: {
+                type: "number",
+                minimum: 0,
+                maximum: 100,
+                description: "Overall confidence in recommendations"
+              }
+            },
+            required: ["recommendations", "analysis", "confidence"],
+            additionalProperties: false
+          }
+        }
+      }
+    });
+    
+    // Parse response
+    const result = JSON.parse(response.choices[0].message.content);
+    
+    console.log('[Embeddings] ✅ Filter recommendations generated:', result.recommendations.length);
+    
+    // Store user analytics
+    updateUserAnalytics(userId, 'filterRecommendationGenerated', {
+      recommendationCount: result.recommendations.length,
+      confidence: result.confidence,
+      lighting: result.analysis.lighting,
+      mood: result.analysis.mood,
+      timestamp: new Date().toISOString()
+    });
+    
+    return {
+      success: true,
+      recommendations: result.recommendations,
+      analysis: result.analysis,
+      confidence: result.confidence,
+      metadata: {
+        model: config.model,
+        userId,
+        timestamp: new Date().toISOString(),
+        usage: response.usage
+      }
+    };
+    
+  } catch (error) {
+    console.error('[Embeddings] ❌ Error generating filter recommendations:', error);
+    
+    // Return fallback recommendations on error
+    return {
+      success: false,
+      error: error.message,
+      recommendations: getFallbackFilterRecommendations(),
+      analysis: {
+        lighting: "unknown",
+        mood: "unknown", 
+        scene: "unknown",
+        faces_detected: false
+      },
+      confidence: 30,
+      metadata: {
+        fallback: true,
+        userId,
+        timestamp: new Date().toISOString()
+      }
+    };
+  }
+};
+
+/**
+ * Create filter recommendation prompt based on available filters
+ * @param {Object} options - Recommendation options
+ * @returns {string} - Formatted prompt
+ */
+const createFilterRecommendationPrompt = (options = {}) => {
+  return `Analyze this image and recommend the most suitable emoji filters based on the image content and characteristics.
+
+AVAILABLE EMOJI FILTERS (Choose the most contextually relevant):
+
+🎭 FACE FILTERS:
+- "sunglasses" 🕶️ - Cool sunglasses (bright lighting, casual selfies)
+- "heart_eyes" 😍 - Heart eyes (romantic, cute, positive mood)
+- "cool_face" 😎 - Cool emoji (confident, relaxed vibes)
+- "crown" 👑 - Royal crown (celebratory, special occasions)
+
+🌿 NATURE & OUTDOOR FILTERS:
+- "waterfall" 🏞️ - Waterfall/nature scenery (perfect for waterfalls, landscapes, natural scenes)
+- "mountain" 🏔️ - Mountain emoji (hiking, mountain views, outdoor adventures)
+- "tree" 🌲 - Tree emoji (forests, nature, outdoor activities)
+- "flower" 🌸 - Flower emoji (gardens, spring, beautiful blooms)
+- "sun" ☀️ - Sunshine (bright sunny days, golden hour, outdoor fun)
+- "rainbow" 🌈 - Rainbow (colorful scenes, after rain, pride, happiness)
+
+✨ MOOD & ENERGY FILTERS:
+- "fire" 🔥 - Fire emoji (hot, energetic, exciting content)
+- "lightning" ⚡ - Lightning bolt (high energy, powerful moments)
+- "star" ⭐ - Star (special moments, achievements, night scenes)
+- "sparkle" ✨ - Sparkles (magical, glittery, special effects)
+
+☕ LIFESTYLE & ACTIVITY FILTERS:
+- "coffee" ☕ - Coffee (café scenes, morning vibes, coffee culture)
+- "pizza" 🍕 - Pizza (food photos, casual dining, fun meals)
+- "camera" 📸 - Camera (photography, creative content, artistic shots)
+- "music" 🎵 - Music notes (concerts, musical moments, artistic vibes)
+
+🐾 ANIMAL FILTERS:
+- "cat" 🐱 - Cat face (cute, playful, pet photos)
+- "dog" 🐶 - Dog face (friendly, loyal, pet content)
+- "butterfly" 🦋 - Butterfly (delicate, beautiful, transformation)
+
+🌤️ WEATHER & SEASONAL FILTERS:
+- "snowflake" ❄️ - Snowflake (winter, cold, snow scenes)
+- "cloud" ☁️ - Cloud (overcast, dreamy, soft lighting)
+- "moon" 🌙 - Moon (night, romantic, celestial)
+
+RECOMMENDATION PRIORITY:
+1. **CONTENT MATCH**: Does the emoji directly relate to what's in the image? (waterfall photo = 🏞️ gets 95+ score)
+2. **SCENE RELEVANCE**: Does the emoji fit the scene type? (nature scene = nature emojis score 80-90)
+3. **MOOD ENHANCEMENT**: Does the emoji match the image mood? (energetic scene = ⚡🔥 score 70-80)
+4. **LIGHTING COMPATIBILITY**: Does the emoji work with the lighting? (bright = ☀️, dim = 🌙)
+5. **GENERAL APPEAL**: Generic but attractive options (face filters score 50-60)
+
+SCORING CRITERIA (0-100):
+- 95-100: Perfect content match (waterfall image gets waterfall emoji)
+- 85-94: Excellent thematic relevance (nature scene gets nature emoji)
+- 75-84: Strong mood/activity match (energetic scene gets energy emoji)
+- 60-74: Good general enhancement (face filters on portraits)
+- 40-59: Okay but not optimal (unrelated but harmless)
+- 0-39: Poor match, doesn't fit the content
+
+ANALYSIS CRITERIA:
+- **Primary Content**: What is the main subject? (waterfall, person, food, etc.)
+- **Scene Type**: landscape/portrait/close-up/wide-shot/indoor/outdoor
+- **Mood Assessment**: peaceful/energetic/fun/romantic/serious/playful
+- **Lighting**: bright/dim/golden_hour/natural/artificial
+- **Colors**: What are the dominant colors and how do they relate to available emojis?
+
+Focus on recommending 3-4 filters that genuinely match the image content.
+Prioritize content relevance over generic appeal.
+
+For a waterfall image: waterfall 🏞️ should score 95+, other nature emojis 85+, mood emojis 70+, generic face filters 50-.
+
+Respond with valid JSON matching the specified schema.`;
+};
+
+/**
+ * Get fallback filter recommendations when AI fails
+ * @returns {Array} - Default filter recommendations
+ */
+const getFallbackFilterRecommendations = () => {
+  // Provide a diverse mix of filters as fallbacks
+  const fallbackOptions = [
+    // Always include some safe options
+    { filterId: "sparkle", score: 80, reasoning: "Magical sparkles enhance most photos", category: "mood" },
+    { filterId: "sunglasses", score: 75, reasoning: "Cool sunglasses work well for many selfies", category: "facial" },
+    { filterId: "fire", score: 70, reasoning: "Fire emoji adds energy and excitement", category: "mood" },
+    { filterId: "star", score: 68, reasoning: "Star emoji highlights special moments", category: "mood" },
+    
+    // Nature options for outdoor content
+    { filterId: "sun", score: 72, reasoning: "Sunshine emoji brightens outdoor photos", category: "lighting" },
+    { filterId: "flower", score: 69, reasoning: "Flower emoji adds beauty to natural scenes", category: "scene" },
+    
+    // Lifestyle options
+    { filterId: "camera", score: 66, reasoning: "Camera emoji perfect for photography content", category: "scene" },
+    { filterId: "heart_eyes", score: 65, reasoning: "Heart eyes express positive emotions", category: "mood" }
+  ];
+  
+  // Return a random selection of 3-4 fallback options
+  const shuffled = [...fallbackOptions].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, 3);
 }; 

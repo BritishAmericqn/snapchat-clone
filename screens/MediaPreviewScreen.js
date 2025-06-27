@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthenticatedUserContext } from '../providers';
 import { Colors } from '../config';
 import { createPost, generateCaptionSuggestions } from '../api';
-import { TextOverlayTools, ImageComposer, VideoPlayer, TagSuggestionSection } from '../components';
+import { TextOverlayTools, ImageComposer, VideoPlayer, TagSuggestionSection, FilterOverlay } from '../components';
 
 export const MediaPreviewScreen = ({ navigation, route }) => {
   const { user } = useContext(AuthenticatedUserContext);
@@ -44,31 +44,53 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
   const [textOverlaysEnabled, setTextOverlaysEnabled] = useState(false);
   const [textOverlays, setTextOverlays] = useState([]);
   
+  // Filter state
+  const [filtersEnabled, setFiltersEnabled] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState('none');
+  const [appliedFilters, setAppliedFilters] = useState([]);
+  
   // Refs for image composition
   const imageComposerRef = useRef(null);
 
   const handlePost = async () => {
     try {
       setIsPosting(true);
+      console.log('[MediaPreview] 🚀 Starting post creation...');
+      console.log('[MediaPreview] 🎭 Applied filters at post time:', appliedFilters);
+      console.log('[MediaPreview] ✏️ Text overlays at post time:', textOverlays);
       
       let finalMediaUri = media.uri;
       
-      // Only compose text overlays for images (not videos)
-      if (textOverlays.length > 0 && imageComposerRef.current && media.type === 'image') {
-        console.log('[MediaPreview] Composing image with text overlays...');
+      // Compose text overlays and filters for images (not videos)
+      const hasTextOverlays = textOverlays.length > 0;
+      const hasFilters = appliedFilters.length > 0; // ✅ FIXED: Use appliedFilters instead of selectedFilter
+      
+      if ((hasTextOverlays || hasFilters) && imageComposerRef.current && media.type === 'image') {
+        const overlayTypes = [];
+        if (hasTextOverlays) overlayTypes.push(`${textOverlays.length} text overlays`);
+        if (hasFilters) overlayTypes.push(`${appliedFilters.length} filters`);
+        
+        console.log(`[MediaPreview] 🎨 Composing image with ${overlayTypes.join(' and ')}...`);
+        
+        // Debug: Check what data is being passed to composer
+        const filtersForComposer = getFilterData();
+        console.log('[MediaPreview] 🎭 Filters being passed to composer:', filtersForComposer);
+        
         try {
           const compositeUri = await imageComposerRef.current.captureComposition();
           finalMediaUri = compositeUri;
-          console.log('[MediaPreview] Using composite image:', compositeUri);
+          console.log('[MediaPreview] ✅ Using composite image:', compositeUri);
         } catch (compositionError) {
-          console.error('[MediaPreview] Image composition failed:', compositionError);
+          console.error('[MediaPreview] ❌ Image composition failed:', compositionError);
           Alert.alert(
             'Warning', 
-            'Failed to apply text overlays. Posting original image instead.',
+            `Failed to apply ${overlayTypes.join(' and ')}. Posting original image instead.`,
             [{ text: 'Continue', style: 'default' }]
           );
           // Continue with original image if composition fails
         }
+      } else {
+        console.log('[MediaPreview] 📷 No overlays or filters to compose, using original image');
       }
       
       const postData = {
@@ -78,11 +100,18 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
         visibility,
         expiresIn: expiresIn * 60 * 60 * 1000, // Convert hours to milliseconds
         deleteOnView,
+        appliedFilters: hasFilters ? appliedFilters : undefined, // ✅ ADDED: Save filter data
         // No longer save textOverlays separately - they're burned into the image
       };
       
+      console.log('[MediaPreview] 📝 Post data summary:');
+      console.log('- Media URI:', finalMediaUri);
+      console.log('- Has Filters:', hasFilters);
+      console.log('- Has Text Overlays:', hasTextOverlays);
+      console.log('- Caption:', caption);
+      
       const postId = await createPost(user.uid, postData);
-      console.log('[MediaPreview] Post created:', postId);
+      console.log('[MediaPreview] ✅ Post created with ID:', postId);
       
       Alert.alert(
         'Success',
@@ -101,7 +130,7 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
         ],
       );
     } catch (error) {
-      console.error('[MediaPreview] Error posting:', error);
+      console.error('[MediaPreview] ❌ Error posting:', error);
       Alert.alert('Error', 'Failed to post snap. Please try again.');
     } finally {
       setIsPosting(false);
@@ -131,6 +160,91 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
   const toggleTextOverlays = () => {
     setTextOverlaysEnabled(!textOverlaysEnabled);
     console.log('[MediaPreview] Text overlays toggled:', !textOverlaysEnabled);
+  };
+
+  // Filter handling functions
+  const toggleFilters = () => {
+    setFiltersEnabled(!filtersEnabled);
+    if (!filtersEnabled) {
+      setSelectedFilter('none'); // Reset filter when disabling
+    }
+    console.log('[MediaPreview] Filters toggled:', !filtersEnabled);
+  };
+
+  const handleFilterChange = (filterId) => {
+    setSelectedFilter(filterId);
+    console.log('[MediaPreview] Filter changed to:', filterId);
+  };
+
+  // Helper function to get filter data for composition
+  const getFilterData = () => {
+    console.log('[MediaPreview] 🎭 getFilterData called with appliedFilters:', appliedFilters);
+    
+    if (!appliedFilters || appliedFilters.length === 0) {
+      console.log('[MediaPreview] 🎭 No applied filters found');
+      return [];
+    }
+
+    // Import filter definitions (same as in FilterOverlay) - EXPANDED SET
+    const FILTERS = {
+      // Face Filters
+      sunglasses: { id: 'sunglasses', emoji: '🕶️', position: 'eyes', scale: 1.8 },
+      heart_eyes: { id: 'heart_eyes', emoji: '😍', position: 'face', scale: 1.4 },
+      cool_face: { id: 'cool_face', emoji: '😎', position: 'face', scale: 1.4 },
+      crown: { id: 'crown', emoji: '👑', position: 'forehead', scale: 1.7 },
+      
+      // Nature & Outdoor Filters
+      waterfall: { id: 'waterfall', emoji: '🏞️', position: 'face', scale: 1.5 },
+      mountain: { id: 'mountain', emoji: '🏔️', position: 'face', scale: 1.5 },
+      tree: { id: 'tree', emoji: '🌲', position: 'face', scale: 1.6 },
+      flower: { id: 'flower', emoji: '🌸', position: 'face', scale: 1.3 },
+      sun: { id: 'sun', emoji: '☀️', position: 'face', scale: 1.6 },
+      rainbow: { id: 'rainbow', emoji: '🌈', position: 'face', scale: 1.7 },
+      
+      // Activity & Mood Filters  
+      fire: { id: 'fire', emoji: '🔥', position: 'face', scale: 1.5 },
+      lightning: { id: 'lightning', emoji: '⚡', position: 'face', scale: 1.4 },
+      star: { id: 'star', emoji: '⭐', position: 'face', scale: 1.3 },
+      sparkle: { id: 'sparkle', emoji: '✨', position: 'face', scale: 1.4 },
+      
+      // Food & Lifestyle Filters
+      coffee: { id: 'coffee', emoji: '☕', position: 'face', scale: 1.3 },
+      pizza: { id: 'pizza', emoji: '🍕', position: 'face', scale: 1.4 },
+      camera: { id: 'camera', emoji: '📸', position: 'face', scale: 1.3 },
+      music: { id: 'music', emoji: '🎵', position: 'face', scale: 1.3 },
+      
+      // Animals
+      cat: { id: 'cat', emoji: '🐱', position: 'face', scale: 1.4 },
+      dog: { id: 'dog', emoji: '🐶', position: 'face', scale: 1.4 },
+      butterfly: { id: 'butterfly', emoji: '🦋', position: 'face', scale: 1.5 },
+      
+      // Seasonal & Weather
+      snowflake: { id: 'snowflake', emoji: '❄️', position: 'face', scale: 1.3 },
+      cloud: { id: 'cloud', emoji: '☁️', position: 'face', scale: 1.5 },
+      moon: { id: 'moon', emoji: '🌙', position: 'face', scale: 1.4 }
+    };
+
+    // Convert applied filters to composition format
+    const filterData = appliedFilters.map(appliedFilter => {
+      const filterDef = FILTERS[appliedFilter.filterId];
+      if (!filterDef) {
+        console.log('[MediaPreview] 🎭 Warning: Filter definition not found for:', appliedFilter.filterId);
+        return null;
+      }
+
+      const result = {
+        id: appliedFilter.id,
+        emoji: filterDef.emoji,
+        position: appliedFilter.position,
+        size: appliedFilter.size,
+      };
+      
+      console.log('[MediaPreview] 🎭 Converted filter:', appliedFilter.filterId, '→', result);
+      return result;
+    }).filter(Boolean);
+    
+    console.log('[MediaPreview] 🎭 Final filter data for composition:', filterData);
+    return filterData;
   };
 
   // RAG Caption Generation Functions
@@ -297,6 +411,20 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             )}
             
+            {/* Filter Toggle Button - Only show for images */}
+            {media.type === 'image' && (
+              <TouchableOpacity
+                style={[styles.headerButton, filtersEnabled && styles.headerButtonActive]}
+                onPress={toggleFilters}
+              >
+                <Ionicons 
+                  name="happy" 
+                  size={24} 
+                  color={filtersEnabled ? Colors.snapYellow : Colors.white} 
+                />
+              </TouchableOpacity>
+            )}
+            
             <TouchableOpacity
               style={[styles.headerButton, styles.postButton]}
               onPress={handlePost}
@@ -330,6 +458,22 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
               <Image source={{ uri: media.uri }} style={styles.mediaPreview} />
             )}
             
+            {/* Filter Overlay - Always show for images if there are applied filters OR menu is open */}
+            {media.type === 'image' && (appliedFilters.length > 0 || filtersEnabled) && (
+              <FilterOverlay
+                detectedFaces={[]} // No face detection data in preview, but AI will analyze the image
+                selectedFilter={selectedFilter}
+                onFilterChange={handleFilterChange}
+                appliedFilters={appliedFilters}
+                onFiltersChange={setAppliedFilters}
+                isEnabled={filtersEnabled}
+                showMenuOnly={!filtersEnabled && appliedFilters.length > 0}
+                imageUri={media.uri}
+                userId={user.uid}
+                style={styles.filterOverlayContainer}
+              />
+            )}
+            
             {/* Text Overlay Tools - Only show for images */}
             {textOverlaysEnabled && media.type === 'image' && (
               <TextOverlayTools
@@ -349,6 +493,7 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
               ref={imageComposerRef}
               mediaUri={media.uri}
               textOverlays={textOverlays}
+              filters={getFilterData()}
               style={styles.composerContainer}
             />
           </View>
@@ -701,6 +846,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   textOverlayContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  filterOverlayContainer: {
     position: 'absolute',
     top: 0,
     left: 0,

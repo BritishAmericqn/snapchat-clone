@@ -5,6 +5,7 @@ import { captureRef } from 'react-native-view-shot';
 const ImageComposer = React.forwardRef(({ 
   mediaUri, 
   textOverlays = [], 
+  filters = [], // New filters prop
   style,
   onCompositionComplete,
   onCompositionError
@@ -99,6 +100,45 @@ const ImageComposer = React.forwardRef(({
           >
             {overlay.text}
           </Text>
+        );
+      })}
+      
+      {/* Filter Overlays */}
+      {filters.map((filter) => {
+        // Ensure we have valid filter data
+        if (!filter || !filter.emoji || !filter.position) {
+          return null;
+        }
+
+        // Build filter style from filter data
+        const filterStyle = {
+          position: 'absolute',
+          left: filter.position.x - (filter.size / 2), // Center the filter
+          top: filter.position.y - (filter.size / 2),
+          width: filter.size,
+          height: filter.size,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          borderRadius: filter.size / 2, // Circular background
+          borderWidth: 2,
+          borderColor: 'rgba(255, 252, 0, 0.8)', // Snapchat yellow border
+        };
+
+        const emojiStyle = {
+          fontSize: filter.size * 0.9, // Emoji slightly smaller than container
+          textAlign: 'center',
+          textShadowColor: 'rgba(0, 0, 0, 0.8)',
+          textShadowOffset: { width: 2, height: 2 },
+          textShadowRadius: 4,
+        };
+
+        return (
+          <View key={filter.id} style={filterStyle}>
+            <Text style={emojiStyle}>
+              {filter.emoji}
+            </Text>
+          </View>
         );
       })}
     </View>

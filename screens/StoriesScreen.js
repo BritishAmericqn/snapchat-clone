@@ -9,6 +9,7 @@ import {
   Dimensions,
   StatusBar,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthenticatedUserContext } from '../providers';
@@ -140,26 +141,34 @@ export const StoriesScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Stories List */}
-      <FlatList
-        data={stories}
-        renderItem={renderStoryBubble}
-        keyExtractor={(item) => item.authorId}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.storiesContainer}
-      />
-
-      {/* AI-Powered Discovery Section */}
-      <View style={styles.discoverSectionContainer}>
-        <StoryDiscoverySection
-          navigation={navigation}
-          onStoryPress={handleDiscoveryStoryPress}
-          limit={8}
-          showHeader={true}
-          style={styles.discoverSection}
+      {/* Scrollable Content */}
+      <ScrollView 
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+      >
+        {/* Stories List */}
+        <FlatList
+          data={stories}
+          renderItem={renderStoryBubble}
+          keyExtractor={(item) => item.authorId}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.storiesContainer}
+          scrollEnabled={true}
         />
-      </View>
+
+        {/* AI-Powered Discovery Section */}
+        <View style={styles.discoverSectionContainer}>
+          <StoryDiscoverySection
+            navigation={navigation}
+            onStoryPress={handleDiscoveryStoryPress}
+            limit={8}
+            showHeader={true}
+            style={styles.discoverSection}
+          />
+        </View>
+      </ScrollView>
     </GradientBackground>
   );
 };
@@ -192,6 +201,9 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     color: Colors.white,
+  },
+  scrollContainer: {
+    flex: 1,
   },
   storiesContainer: {
     paddingHorizontal: 16,
@@ -246,12 +258,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   discoverSectionContainer: {
-    flex: 1,
+    // Removed flex: 1 since we're now in a ScrollView
     paddingHorizontal: 16,
     paddingBottom: 16,
+    minHeight: 400, // Minimum height to ensure content is visible
   },
   discoverSection: {
-    flex: 1,
+    // Removed flex: 1 for ScrollView compatibility
+    minHeight: 350, // Ensure discovery section has adequate height
   },
 });
 

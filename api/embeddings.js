@@ -3249,14 +3249,20 @@ const getAllUsersForRecommendation = async (currentUserId, friendIds) => {
  */
 const getDiscoveryPosts = async (currentUserId, friendIds) => {
   try {
+    console.log('[Embeddings] 🔍 Getting discovery posts for user:', currentUserId);
+    console.log('[Embeddings] 👥 User friends:', friendIds);
+    
     const { db } = require('../config');
     const snapshot = await db.collection('posts').get();
     
-    const posts = [];
+    const allPosts = [];
+    const filteredPosts = [];
+    const rejectedPosts = [];
     const now = new Date();
     
     snapshot.forEach((doc) => {
       const post = { id: doc.id, ...doc.data() };
+      allPosts.push(post);
       
       // Filter for discovery: non-friends, not expired, public/friends-of-friends
       const expiresAt = post.expiresAt?.toDate ? post.expiresAt.toDate() : post.expiresAt;
@@ -3264,19 +3270,60 @@ const getDiscoveryPosts = async (currentUserId, friendIds) => {
       const isNonFriend = post.authorUid !== currentUserId && !friendIds.includes(post.authorUid);
       const isDiscoverable = ['public', 'friendsOfFriends'].includes(post.visibility);
       
+      // Detailed logging for each post
+      console.log(`[Embeddings] 📝 Post ${post.id} by ${post.authorUid}:`);
+      console.log(`  - Visibility: ${post.visibility}`);
+      console.log(`  - isNonFriend: ${isNonFriend} (not current user: ${post.authorUid !== currentUserId}, not friend: ${!friendIds.includes(post.authorUid)})`);
+      console.log(`  - isDiscoverable: ${isDiscoverable}`);
+      console.log(`  - isExpired: ${isExpired}`);
+      console.log(`  - Passes filter: ${isNonFriend && !isExpired && isDiscoverable}`);
+      
       if (isNonFriend && !isExpired && isDiscoverable) {
-        posts.push(post);
+        filteredPosts.push(post);
+        console.log(`  ✅ INCLUDED in discovery`);
+      } else {
+        rejectedPosts.push({
+          post: post.id,
+          author: post.authorUid,
+          visibility: post.visibility,
+          reason: !isNonFriend ? 'IS_FRIEND_OR_SELF' : isExpired ? 'EXPIRED' : !isDiscoverable ? 'NOT_DISCOVERABLE' : 'UNKNOWN'
+        });
+        console.log(`  ❌ REJECTED: ${!isNonFriend ? 'IS_FRIEND_OR_SELF' : isExpired ? 'EXPIRED' : !isDiscoverable ? 'NOT_DISCOVERABLE' : 'UNKNOWN'}`);
       }
     });
     
+    console.log('[Embeddings] 📊 Discovery filtering summary:');
+    console.log(`  - Total posts: ${allPosts.length}`);
+    console.log(`  - Discovery posts found: ${filteredPosts.length}`);
+    console.log(`  - Rejected posts: ${rejectedPosts.length}`);
+    
+    if (rejectedPosts.length > 0) {
+      console.log('[Embeddings] 📝 Rejection breakdown:');
+      const rejectionCounts = rejectedPosts.reduce((acc, post) => {
+        acc[post.reason] = (acc[post.reason] || 0) + 1;
+        return acc;
+      }, {});
+      Object.entries(rejectionCounts).forEach(([reason, count]) => {
+        console.log(`  - ${reason}: ${count} posts`);
+      });
+    }
+    
+    if (filteredPosts.length === 0) {
+      console.log('[Embeddings] ⚠️ No discovery posts found. Debugging:');
+      console.log('  - Check if non-friends have posts with visibility: public/friendsOfFriends');
+      console.log('  - Verify friend relationships are correct');
+      console.log('  - Ensure posts are not expired');
+    }
+    
     // Sort by engagement and recency
-    posts.sort((a, b) => {
+    filteredPosts.sort((a, b) => {
       const scoreA = (a.viewCount || 0) + (new Date(b.createdAt) - new Date(a.createdAt)) / 3600000;
       const scoreB = (b.viewCount || 0) + (new Date(a.createdAt) - new Date(b.createdAt)) / 3600000;
       return scoreB - scoreA;
     });
     
-    return posts;
+    console.log('[Embeddings] ✅ Returning', filteredPosts.length, 'discovery posts');
+    return filteredPosts;
   } catch (error) {
     console.error('[Embeddings] ❌ Error getting discovery posts:', error);
     return [];

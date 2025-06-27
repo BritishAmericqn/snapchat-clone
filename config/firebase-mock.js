@@ -293,6 +293,92 @@ const mockFirestoreData = {
       createdAt: new Date(Date.now() - 15 * 60 * 1000), // 15 minutes ago
       metadata: {},
     },
+    
+    // ✅ STORY DISCOVERY FIX: Add posts from non-friends with discoverable visibility
+    'post_alex_2': {
+      postId: 'post_alex_2',
+      authorUid: 'user_alex',
+      mediaUrl: 'https://picsum.photos/400/600?random=alex2',
+      mediaType: 'image',
+      caption: 'Amazing basketball game! Who else loves sports? 🏀',
+      visibility: 'public', // ✅ Public post from non-friend
+      viewCount: 12,
+      expiresAt: new Date(Date.now() + 36 * 60 * 60 * 1000), // 36 hours from now
+      deleteOnView: false,
+      viewedBy: ['user_sarah', 'user_lisa', 'user_chris', 'user_david'],
+      createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3 hours ago
+      metadata: {},
+    },
+    'post_lisa_2': {
+      postId: 'post_lisa_2',
+      authorUid: 'user_lisa',
+      mediaUrl: 'https://picsum.photos/400/600?random=lisa2',
+      mediaType: 'image',
+      caption: 'Plant collection update! 🌱 Green vibes only',
+      visibility: 'public', // ✅ Public post from non-friend
+      viewCount: 7,
+      expiresAt: new Date(Date.now() + 18 * 60 * 60 * 1000), // 18 hours from now
+      deleteOnView: false,
+      viewedBy: ['user_alex', 'user_sophie', 'user_emma'],
+      createdAt: new Date(Date.now() - 90 * 60 * 1000), // 90 minutes ago
+      metadata: {},
+    },
+    'post_david_1': {
+      postId: 'post_david_1',
+      authorUid: 'user_david',
+      mediaUrl: 'https://picsum.photos/400/600?random=david1',
+      mediaType: 'image',
+      caption: 'Mountain biking adventure! 🚴‍♂️ Nature therapy',
+      visibility: 'friendsOfFriends', // ✅ FriendsOfFriends post from non-friend
+      viewCount: 4,
+      expiresAt: new Date(Date.now() + 30 * 60 * 60 * 1000), // 30 hours from now
+      deleteOnView: false,
+      viewedBy: ['user_mike', 'user_chris'],
+      createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+      metadata: {},
+    },
+    'post_sophie_1': {
+      postId: 'post_sophie_1',
+      authorUid: 'user_sophie',
+      mediaUrl: 'https://picsum.photos/400/600?random=sophie1',
+      mediaType: 'image',
+      caption: 'Baking masterpiece! 🍰 Who wants to try some?',
+      visibility: 'public', // ✅ Public post from non-friend
+      viewCount: 9,
+      expiresAt: new Date(Date.now() + 42 * 60 * 60 * 1000), // 42 hours from now
+      deleteOnView: false,
+      viewedBy: ['user_lisa', 'user_chris', 'user_alex'],
+      createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
+      metadata: {},
+    },
+    'post_chris_1': {
+      postId: 'post_chris_1',
+      authorUid: 'user_chris',
+      mediaUrl: 'https://picsum.photos/400/600?random=chris1',
+      mediaType: 'image',
+      caption: 'New song release! 🎸 Rock on! 🤘',
+      visibility: 'friendsOfFriends', // ✅ FriendsOfFriends post from non-friend
+      viewCount: 15,
+      expiresAt: new Date(Date.now() + 60 * 60 * 60 * 1000), // 60 hours from now
+      deleteOnView: false,
+      viewedBy: ['user_alex', 'user_david', 'user_sophie'],
+      createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000), // 8 hours ago
+      metadata: {},
+    },
+    'post_gaming_1': {
+      postId: 'post_gaming_1',
+      authorUid: 'user_gaming',
+      mediaUrl: 'https://picsum.photos/400/600?random=gaming1',
+      mediaType: 'image',
+      caption: 'Epic gaming setup! 🎮 Who else is playing this weekend?',
+      visibility: 'public', // ✅ Public post from non-friend
+      viewCount: 22,
+      expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000), // 72 hours from now
+      deleteOnView: false,
+      viewedBy: ['user_david', 'user_chris', 'user_alex', 'user_sophie'],
+      createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000), // 12 hours ago
+      metadata: {},
+    },
   },
   chats: {
     // Pre-populated test chats

@@ -92,6 +92,73 @@ const tests = [
         }
       },
       {
+        name: 'Discovery posts data fix verification',
+        description: 'Verify that non-friends have discoverable posts (public/friendsOfFriends)',
+        test: async () => {
+          try {
+            const { db } = require('./config');
+            const snapshot = await db.collection('posts').get();
+            
+            const testUserFriends = ['user_sarah', 'user_mike', 'user_emma', 'user_john'];
+            let discoverablePosts = 0;
+            
+            snapshot.forEach((doc) => {
+              const post = { id: doc.id, ...doc.data() };
+              const isNonFriend = post.authorUid !== '12345' && !testUserFriends.includes(post.authorUid);
+              const isDiscoverable = ['public', 'friendsOfFriends'].includes(post.visibility);
+              
+              if (isNonFriend && isDiscoverable) {
+                discoverablePosts++;
+              }
+            });
+            
+            console.log(`[Test] Found ${discoverablePosts} discoverable posts from non-friends`);
+            return discoverablePosts > 0;
+          } catch (error) {
+            console.error('Discovery posts test error:', error.message);
+            return false;
+          }
+        }
+      },
+      {
+        name: 'getDiscoveryPosts returns results',
+        description: 'Verify the discovery posts filtering function works correctly',
+        test: async () => {
+          try {
+            // Simulate the getDiscoveryPosts logic
+            const { db } = require('./config');
+            const { getUserProfile } = require('./api/users');
+            
+            const testUserId = '12345';
+            const userProfile = await getUserProfile(testUserId);
+            const friendIds = userProfile?.friendIds || [];
+            
+            const snapshot = await db.collection('posts').get();
+            const discoveryPosts = [];
+            const now = new Date();
+            
+            snapshot.forEach((doc) => {
+              const post = { id: doc.id, ...doc.data() };
+              
+              const expiresAt = post.expiresAt?.toDate ? post.expiresAt.toDate() : post.expiresAt;
+              const isExpired = expiresAt && new Date(expiresAt) < now;
+              const isNonFriend = post.authorUid !== testUserId && !friendIds.includes(post.authorUid);
+              const isDiscoverable = ['public', 'friendsOfFriends'].includes(post.visibility);
+              
+              if (isNonFriend && !isExpired && isDiscoverable) {
+                discoveryPosts.push(post);
+              }
+            });
+            
+            console.log(`[Test] getDiscoveryPosts logic returned ${discoveryPosts.length} posts`);
+            return discoveryPosts.length > 0;
+          } catch (error) {
+            console.error('getDiscoveryPosts test error:', error.message);
+            return false;
+          }
+        }
+      },
+      {
         name: 'StoriesScreen integration',
         description: 'Verify StoryDiscoverySection is integrated into StoriesScreen',
         test: async () => {

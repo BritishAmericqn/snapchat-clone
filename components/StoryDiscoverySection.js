@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     overflow: 'hidden',
     marginVertical: 8,
-    flex: 1,
+    // Removed flex: 1 for better ScrollView compatibility
   },
   header: {
     padding: 16,
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
   loadingContainer: {
     padding: 40,
     alignItems: 'center',
-    flex: 1,
+    minHeight: 200, // Fixed height instead of flex: 1 for ScrollView compatibility
     justifyContent: 'center',
   },
   loadingText: {
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
   emptyContainer: {
     padding: 40,
     alignItems: 'center',
-    flex: 1,
+    minHeight: 200, // Fixed height instead of flex: 1 for ScrollView compatibility
     justifyContent: 'center',
   },
   emptyText: {
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   errorContainer: {
     padding: 20,
     alignItems: 'center',
-    flex: 1,
+    minHeight: 180, // Fixed height instead of flex: 1 for ScrollView compatibility
     justifyContent: 'center',
   },
   errorText: {

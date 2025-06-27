@@ -901,4 +901,418 @@ export const getAnalyticsSummary = () => {
     activeUsers: analyticsStore.userPreferences.size,
     timestamp: new Date().toISOString()
   };
+};
+
+/**
+ * Generate conversation starter suggestions using OpenAI
+ * @param {string} currentUserId - Current user's ID
+ * @param {string} otherUserId - Other user's ID  
+ * @param {Object} options - Additional options for generation
+ * @returns {Promise<Object>} - Conversation starter suggestions and context
+ */
+export const generateConversationStarters = async (currentUserId, otherUserId, options = {}) => {
+  try {
+    console.log('[Embeddings] Generating conversation starters for users:', currentUserId, '→', otherUserId);
+    
+    // Rate limiting check
+    if (!checkRateLimit(currentUserId, 'conversationGeneration')) {
+      throw new Error('Rate limit exceeded. Please try again later.');
+    }
+    
+    // Track analytics
+    analyticsStore.conversationRequests = (analyticsStore.conversationRequests || 0) + 1;
+    
+    // Import user and friends APIs dynamically to avoid circular dependencies
+    const { getUserProfile, getUsersByIds } = await import('./users');
+    const { getFriendSuggestions } = await import('./friends');
+    
+    // Get both user profiles
+    const [currentUser, otherUser] = await Promise.all([
+      getUserProfile(currentUserId),
+      getUserProfile(otherUserId)
+    ]);
+    
+    if (!currentUser || !otherUser) {
+      throw new Error('Unable to load user profiles for conversation analysis');
+    }
+    
+    // Analyze shared context
+    const context = await analyzeSharedContext(currentUser, otherUser);
+    
+    // Generate AI suggestions using OpenAI
+    const openai = getOpenAIClient();
+    const config = RAG_CONFIG.openai;
+    
+    // Create prompt for conversation starters
+    const prompt = createConversationPrompt(currentUser, otherUser, context, options);
+    
+    // Call OpenAI API
+    const response = await openai.chat.completions.create({
+      model: config.model,
+      temperature: 0.8, // Higher creativity for conversation starters
+      max_tokens: 300,
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "conversation_starters",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              suggestions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    text: {
+                      type: "string",
+                      description: "The conversation starter message"
+                    },
+                    reasoning: {
+                      type: "string", 
+                      description: "Why this starter was suggested"
+                    },
+                    category: {
+                      type: "string",
+                      enum: ["mutual_friends", "shared_interests", "profile_based", "general_friendly"],
+                      description: "The type of conversation starter"
+                    }
+                  },
+                  required: ["text", "reasoning", "category"],
+                  additionalProperties: false
+                },
+                minItems: 2,
+                maxItems: 3
+              },
+              context_analysis: {
+                type: "string",
+                description: "Brief analysis of what these users have in common"
+              },
+              connection_strength: {
+                type: "string",
+                enum: ["strong", "moderate", "weak"],
+                description: "How connected these users appear to be"
+              }
+            },
+            required: ["suggestions", "context_analysis", "connection_strength"],
+            additionalProperties: false
+          }
+        }
+      }
+    });
+    
+    // Parse response
+    const result = JSON.parse(response.choices[0].message.content);
+    
+    // Log successful parsing for testing
+    console.log('[Embeddings] Successfully parsed conversation starters:', JSON.stringify(result, null, 2));
+    
+    // Track successful generation
+    analyticsStore.successfulConversations = (analyticsStore.successfulConversations || 0) + 1;
+    
+    // Store user analytics
+    updateUserAnalytics(currentUserId, 'conversationStartersGenerated', {
+      otherUserId,
+      suggestionCount: result.suggestions.length,
+      connectionStrength: result.connection_strength,
+      hasSharedContext: context.mutualFriends.length > 0 || context.sharedInterests.length > 0,
+      timestamp: new Date().toISOString()
+    });
+    
+    console.log('[Embeddings] Conversation starters generated successfully:', result.suggestions.length);
+    
+    return {
+      success: true,
+      suggestions: result.suggestions,
+      context: context,
+      contextAnalysis: result.context_analysis,
+      connectionStrength: result.connection_strength,
+      metadata: {
+        model: config.model,
+        currentUserId,
+        otherUserId,
+        timestamp: new Date().toISOString(),
+        usage: response.usage
+      }
+    };
+    
+  } catch (error) {
+    console.error('[Embeddings] Error generating conversation starters:', error);
+    
+    // Return fallback suggestions on error
+    const fallbackSuggestions = getFallbackConversationStarters(options.category);
+    
+    return {
+      success: false,
+      error: error.message,
+      suggestions: fallbackSuggestions,
+      context: {
+        mutualFriends: [],
+        sharedInterests: [],
+        connectionType: 'unknown'
+      },
+      contextAnalysis: "Unable to analyze shared context - using friendly fallback suggestions",
+      connectionStrength: "moderate",
+      metadata: {
+        fallback: true,
+        currentUserId,
+        otherUserId,
+        timestamp: new Date().toISOString()
+      }
+    };
+  }
+};
+
+/**
+ * Analyze shared context between two users
+ * @param {Object} currentUser - Current user profile
+ * @param {Object} otherUser - Other user profile
+ * @returns {Object} - Shared context analysis
+ */
+const analyzeSharedContext = async (currentUser, otherUser) => {
+  try {
+    // Find mutual friends
+    const currentUserFriends = currentUser.friendIds || [];
+    const otherUserFriends = otherUser.friendIds || [];
+    const mutualFriendIds = currentUserFriends.filter(friendId => otherUserFriends.includes(friendId));
+    
+    // Get mutual friend names for context
+    let mutualFriends = [];
+    if (mutualFriendIds.length > 0) {
+      const { getUsersByIds } = await import('./users');
+      const mutualFriendProfiles = await getUsersByIds(mutualFriendIds.slice(0, 3)); // Limit to 3 for privacy
+      mutualFriends = mutualFriendProfiles.map(friend => friend.displayName || friend.username);
+    }
+    
+    // Analyze shared interests from bios
+    const sharedInterests = extractSharedInterests(currentUser.bio, otherUser.bio);
+    
+    // Determine connection type
+    let connectionType = 'stranger';
+    if (mutualFriends.length >= 2) {
+      connectionType = 'mutual_friends';
+    } else if (mutualFriends.length === 1) {
+      connectionType = 'one_mutual_friend';
+    } else if (sharedInterests.length > 0) {
+      connectionType = 'shared_interests';
+    }
+    
+    return {
+      mutualFriends,
+      mutualFriendIds,
+      sharedInterests,
+      connectionType,
+      currentUserInterests: extractInterests(currentUser.bio),
+      otherUserInterests: extractInterests(otherUser.bio)
+    };
+    
+  } catch (error) {
+    console.error('[Embeddings] Error analyzing shared context:', error);
+    return {
+      mutualFriends: [],
+      mutualFriendIds: [],
+      sharedInterests: [],
+      connectionType: 'unknown',
+      currentUserInterests: [],
+      otherUserInterests: []
+    };
+  }
+};
+
+/**
+ * Extract interests from user bio
+ * @param {string} bio - User bio text
+ * @returns {Array} - Array of interest keywords
+ */
+const extractInterests = (bio) => {
+  if (!bio || typeof bio !== 'string') return [];
+  
+  const interestKeywords = [
+    // Hobbies & Activities
+    'photography', 'music', 'travel', 'hiking', 'reading', 'cooking', 'art', 'gaming', 
+    'fitness', 'yoga', 'running', 'cycling', 'swimming', 'dancing', 'writing',
+    'movies', 'books', 'sports', 'football', 'basketball', 'soccer', 'tennis',
+    
+    // Lifestyle & Interests  
+    'coffee', 'tea', 'food', 'fashion', 'design', 'tech', 'coding', 'startup',
+    'entrepreneur', 'business', 'finance', 'crypto', 'investing', 'stocks',
+    'nature', 'outdoors', 'camping', 'beach', 'mountains', 'city', 'urban',
+    
+    // Creative & Academic
+    'student', 'college', 'university', 'graduate', 'learning', 'education',
+    'science', 'research', 'engineering', 'medicine', 'law', 'journalism',
+    'marketing', 'sales', 'consulting', 'nonprofit', 'volunteer',
+    
+    // Entertainment & Culture
+    'concerts', 'festivals', 'theater', 'comedy', 'standup', 'podcast',
+    'anime', 'manga', 'netflix', 'streaming', 'vinyl', 'records',
+    'wine', 'beer', 'cocktails', 'bartender', 'chef', 'foodie'
+  ];
+  
+  const bioLower = bio.toLowerCase();
+  const foundInterests = interestKeywords.filter(keyword => 
+    bioLower.includes(keyword)
+  );
+  
+  return foundInterests;
+};
+
+/**
+ * Extract shared interests between two bios
+ * @param {string} bio1 - First user's bio
+ * @param {string} bio2 - Second user's bio  
+ * @returns {Array} - Array of shared interest keywords
+ */
+const extractSharedInterests = (bio1, bio2) => {
+  const interests1 = extractInterests(bio1);
+  const interests2 = extractInterests(bio2);
+  
+  return interests1.filter(interest => interests2.includes(interest));
+};
+
+/**
+ * Create conversation starter prompt
+ * @param {Object} currentUser - Current user profile
+ * @param {Object} otherUser - Other user profile
+ * @param {Object} context - Shared context analysis
+ * @param {Object} options - Generation options
+ * @returns {string} - Formatted prompt
+ */
+const createConversationPrompt = (currentUser, otherUser, context, options = {}) => {
+  const currentUserName = currentUser.displayName || currentUser.username || 'User';
+  const otherUserName = otherUser.displayName || otherUser.username || 'Friend';
+  
+  let contextInfo = '';
+  
+  // Add mutual friends context
+  if (context.mutualFriends.length > 0) {
+    const friendsList = context.mutualFriends.slice(0, 2).join(' and ');
+    contextInfo += `\n- Mutual friends: ${friendsList}`;
+  }
+  
+  // Add shared interests context
+  if (context.sharedInterests.length > 0) {
+    const interestsList = context.sharedInterests.slice(0, 3).join(', ');
+    contextInfo += `\n- Shared interests: ${interestsList}`;
+  }
+  
+  // Add individual interests for broader context
+  if (context.currentUserInterests.length > 0) {
+    const currentInterests = context.currentUserInterests.slice(0, 3).join(', ');
+    contextInfo += `\n- ${currentUserName}'s interests: ${currentInterests}`;
+  }
+  
+  if (context.otherUserInterests.length > 0) {
+    const otherInterests = context.otherUserInterests.slice(0, 3).join(', ');
+    contextInfo += `\n- ${otherUserName}'s interests: ${otherInterests}`;
+  }
+  
+  const basePrompt = `Generate 2-3 friendly, natural conversation starters for ${currentUserName} to send to ${otherUserName} as a direct message.
+
+USER CONTEXT:${contextInfo || '\n- No specific shared context found'}
+
+CONVERSATION STARTER REQUIREMENTS:
+1. Sound authentic and natural (not corporate or robotic)
+2. Be specific to their shared context when possible
+3. Keep it casual and non-intrusive
+4. Avoid being too personal or forward
+5. Make it easy for the other person to respond
+
+CATEGORIES TO USE:
+- MUTUAL_FRIENDS: Reference shared connections when available
+- SHARED_INTERESTS: Connect over common hobbies/interests  
+- PROFILE_BASED: Comment on something from their profile
+- GENERAL_FRIENDLY: Warm, welcoming conversation starters
+
+EXAMPLES OF GOOD CONVERSATION STARTERS:
+- "Hey! I noticed we both know Sarah - small world! How do you know her?"
+- "Saw you're into photography too! Have you checked out the new exhibit downtown?"
+- "Hi! Your bio mentioned hiking - any favorite trails around here?"
+- "Hey there! Just wanted to say hi since we got connected 👋"
+
+TONE GUIDELINES:
+- Friendly but not overly enthusiastic
+- Curious rather than interrogating
+- Natural conversation flow
+- Include light emoji usage when appropriate
+- Make it feel like something a real person would type
+
+Focus on creating starters that give ${otherUserName} multiple ways to respond and continue the conversation naturally.
+
+Provide reasoning for each suggestion explaining why it would work well for these specific users.
+
+Respond with valid JSON matching the specified schema.`;
+
+  return basePrompt;
+};
+
+/**
+ * Get fallback conversation starters when API fails
+ * @param {string} category - Preferred category
+ * @returns {Array} - Fallback conversation starters
+ */
+const getFallbackConversationStarters = (category = 'general_friendly') => {
+  const fallbacks = {
+    mutual_friends: [
+      {
+        text: "Hey! I think we have some mutual friends - small world! 😊",
+        reasoning: "References potential shared connections without being specific",
+        category: "mutual_friends"
+      },
+      {
+        text: "Hi there! Just realized we might know some of the same people 👋",
+        reasoning: "Casual way to acknowledge shared social circles", 
+        category: "mutual_friends"
+      }
+    ],
+    shared_interests: [
+      {
+        text: "Hey! Noticed we might have some similar interests - what's been keeping you busy lately?",
+        reasoning: "Opens conversation about shared hobbies without being too specific",
+        category: "shared_interests"
+      },
+      {
+        text: "Hi! Your profile caught my attention - seems like we have some things in common! 😊",
+        reasoning: "Acknowledges profile content while keeping things general",
+        category: "shared_interests"
+      }
+    ],
+    profile_based: [
+      {
+        text: "Hey! Love your profile - you seem like a really interesting person to know! 😊",
+        reasoning: "Positive comment about their profile that invites conversation",
+        category: "profile_based"
+      },
+      {
+        text: "Hi there! Something about your vibe just seemed really cool - thought I'd say hey! 👋",
+        reasoning: "Compliments their overall presence without being too specific",
+        category: "profile_based"
+      }
+    ],
+    general_friendly: [
+      {
+        text: "Hey! Just wanted to reach out and say hi 👋 How's your day going?",
+        reasoning: "Simple, friendly opener that's easy to respond to",
+        category: "general_friendly"
+      },
+      {
+        text: "Hi there! Hope you're having a great day - thought I'd introduce myself 😊",
+        reasoning: "Warm introduction that sets a positive tone",
+        category: "general_friendly"
+      },
+      {
+        text: "Hey! New connections are always exciting - what's been the highlight of your week?",
+        reasoning: "Enthusiastic but not overwhelming, asks an engaging question",
+        category: "general_friendly"  
+      }
+    ]
+  };
+  
+  return fallbacks[category] || fallbacks.general_friendly;
 }; 

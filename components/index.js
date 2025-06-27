@@ -16,6 +16,7 @@ import TextOverlayTools from './TextOverlayTools';
 import ImageComposer from './ImageComposer';
 import VideoPlayer from './VideoPlayer';
 import { TagSuggestionSection } from './TagSuggestionSection';
+import { ConversationStarterChips } from './ConversationStarterChips';
 
 export {
   View,
@@ -36,4 +37,5 @@ export {
   ImageComposer,
   VideoPlayer,
   TagSuggestionSection,
+  ConversationStarterChips,
 };

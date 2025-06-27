@@ -36,7 +36,8 @@ import {
 } from '../api';
 import { Colors, db } from '../config';
 import * as ImagePicker from 'expo-image-picker';
-import { VideoPlayer } from '../components';
+import { VideoPlayer, ConversationStarterChips } from '../components';
+import { generateConversationStarters } from '../api/embeddings';
 
 export const ChatRoomScreen = ({ route, navigation }) => {
   const { user } = useContext(AuthenticatedUserContext);
@@ -51,6 +52,12 @@ export const ChatRoomScreen = ({ route, navigation }) => {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [expireTime, setExpireTime] = useState('24'); // hours
   const [deleteOnView, setDeleteOnView] = useState(false);
+  
+  // Conversation starter state
+  const [conversationStarters, setConversationStarters] = useState([]);
+  const [showConversationStarters, setShowConversationStarters] = useState(false);
+  const [loadingConversationStarters, setLoadingConversationStarters] = useState(false);
+  const [conversationContext, setConversationContext] = useState(null);
   
   const flatListRef = useRef(null);
 
@@ -326,6 +333,129 @@ export const ChatRoomScreen = ({ route, navigation }) => {
     });
   }, [navigation, otherUser]);
 
+  const shouldShowConversationStarters = () => {
+    // Show conversation starters when:
+    // 1. No messages in conversation
+    // 2. Very few messages (< 3)
+    // 3. Long silence (last message > 24 hours ago)
+    // 4. User hasn't dismissed them yet
+    
+    if (messages.length === 0) {
+      console.log('[ChatRoomScreen] 🎯 Showing conversation starters: New conversation');
+      return true;
+    }
+    
+    if (messages.length < 3) {
+      console.log('[ChatRoomScreen] 🎯 Showing conversation starters: Few messages');
+      return true;
+    }
+    
+    // Check for long silence
+    const lastMessage = messages[0]; // messages are sorted newest first
+    if (lastMessage && lastMessage.createdAt) {
+      const lastMessageTime = new Date(lastMessage.createdAt);
+      const now = new Date();
+      const hoursSinceLastMessage = (now - lastMessageTime) / (1000 * 60 * 60);
+      
+      if (hoursSinceLastMessage > 24) {
+        console.log('[ChatRoomScreen] 🎯 Showing conversation starters: Long silence (', hoursSinceLastMessage.toFixed(1), 'hours)');
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  const generateConversationStartersIfNeeded = async () => {
+    console.log('[ChatRoomScreen] 🔍 generateConversationStartersIfNeeded called:', {
+      hasUser: !!user?.uid,
+      hasOtherUser: !!otherUser?.uid,
+      isLoading: loadingConversationStarters,
+      hasExistingStarters: conversationStarters.length > 0
+    });
+    
+    if (!user?.uid || !otherUser?.uid || loadingConversationStarters || conversationStarters.length > 0) {
+      console.log('[ChatRoomScreen] ⏹️ Skipping conversation starters generation');
+      return;
+    }
+    
+    console.log('[ChatRoomScreen] 🤖 Generating conversation starters...');
+    setLoadingConversationStarters(true);
+    
+    try {
+      const result = await generateConversationStarters(user.uid, otherUser.uid, {
+        category: 'mixed' // Generate variety of starter types
+      });
+      
+      console.log('[ChatRoomScreen] 📝 Generated result:', result);
+      
+      if (result.success) {
+        console.log('[ChatRoomScreen] ✅ Conversation starters generated:', result.suggestions.length);
+        setConversationStarters(result.suggestions);
+        setConversationContext(result.context);
+        setShowConversationStarters(true);
+      } else {
+        console.log('[ChatRoomScreen] ⚠️ Using fallback conversation starters:', result.error);
+        setConversationStarters(result.suggestions || []);
+        setShowConversationStarters(true);
+      }
+    } catch (error) {
+      console.error('[ChatRoomScreen] ❌ Error generating conversation starters:', error);
+      // Show fallback starters even on error
+      setConversationStarters([
+        { id: 'fallback1', text: 'Hey! How has your day been?', category: 'general' },
+        { id: 'fallback2', text: 'What have you been up to lately?', category: 'general' }
+      ]);
+      setShowConversationStarters(true);
+    } finally {
+      setLoadingConversationStarters(false);
+    }
+  };
+
+  const handleConversationStarterSelect = (suggestion) => {
+    console.log('[ChatRoomScreen] 🎯 Conversation starter selected:', suggestion.text);
+    
+    // Set the suggestion text as the message
+    setMessageText(suggestion.text);
+    
+    // Hide conversation starters
+    setShowConversationStarters(false);
+    
+    // Analytics: Track suggestion selection
+    try {
+      // Could add analytics tracking here in the future
+      console.log('[ChatRoomScreen] 📊 Analytics: Conversation starter used -', suggestion.category);
+    } catch (error) {
+      console.log('[ChatRoomScreen] ⚠️ Analytics tracking failed:', error);
+    }
+  };
+
+  const handleDismissConversationStarters = () => {
+    console.log('[ChatRoomScreen] ❌ Conversation starters dismissed');
+    setShowConversationStarters(false);
+    
+    // Analytics: Track dismissal
+    try {
+      console.log('[ChatRoomScreen] 📊 Analytics: Conversation starters dismissed');
+    } catch (error) {
+      console.log('[ChatRoomScreen] ⚠️ Analytics tracking failed:', error);
+    }
+  };
+
+  // Check if conversation starters should be shown (moved after function definitions)
+  useEffect(() => {
+    console.log('[ChatRoomScreen] 🔍 Checking conversation starters trigger...', {
+      messagesLength: messages.length,
+      userUid: !!user?.uid,
+      otherUserUid: !!otherUser?.uid,
+      shouldShow: messages.length === 0 || shouldShowConversationStarters()
+    });
+    
+    if (messages.length === 0 || shouldShowConversationStarters()) {
+      generateConversationStartersIfNeeded();
+    }
+  }, [messages, user?.uid, otherUser?.uid]);
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -347,6 +477,17 @@ export const ChatRoomScreen = ({ route, navigation }) => {
         keyExtractor={item => item.id}
         inverted
         contentContainerStyle={styles.messagesList}
+      />
+      
+      {/* Conversation Starter Suggestions */}
+      <ConversationStarterChips
+        suggestions={conversationStarters}
+        onSuggestionSelect={handleConversationStarterSelect}
+        onDismiss={handleDismissConversationStarters}
+        visible={showConversationStarters}
+        loading={loadingConversationStarters}
+        contextAnalysis={conversationContext?.contextAnalysis}
+        connectionStrength={conversationContext?.connectionStrength || 'moderate'}
       />
       
       <View style={styles.inputContainer}>

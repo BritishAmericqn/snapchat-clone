@@ -54,6 +54,10 @@ export const RAG_CONFIG = {
     textOverlayGeneration: {
       maxRequestsPerMinute: 10,
       maxRequestsPerHour: 100,
+    },
+    conversationGeneration: {
+      maxRequestsPerMinute: 5,  // Lower limit for conversation starters
+      maxRequestsPerHour: 50,   // Reasonable limit to prevent spam
     }
   },
   

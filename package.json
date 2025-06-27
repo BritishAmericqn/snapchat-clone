@@ -29,6 +29,7 @@
     "expo-haptics": "~14.1.4",
     "expo-image-manipulator": "~13.1.7",
     "expo-image-picker": "~16.1.4",
+    "expo-linear-gradient": "~14.1.5",
     "firebase": "^10.7.2",
     "formik": "2.1.4",
     "nativewind": "^4.1.23",
@@ -39,7 +40,6 @@
     "react-native-gesture-handler": "~2.24.0",
     "react-native-haptic-feedback": "^2.3.3",
     "react-native-keyboard-aware-scroll-view": "^0.9.4",
-    "react-native-linear-gradient": "^2.8.3",
     "react-native-pager-view": "6.7.1",
     "react-native-paper": "^5.14.5",
     "react-native-reanimated": "~3.17.4",
@@ -63,6 +63,6 @@
     "prettier": "^3.6.0"
   },
   "private": true,
-  "name": "snapchat-clone",
+  "name": "2nd-degree",
   "version": "1.0.0"
 }

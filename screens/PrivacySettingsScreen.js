@@ -120,7 +120,7 @@ export const PrivacySettingsScreen = ({ navigation }) => {
             onValueChange={setShowActiveStatus}
           />
           <Text style={styles.settingDescription}>
-            Let friends know when you're active on Snapchat
+                          Let friends know when you're active on 2nd Degree
           </Text>
         </SettingSection>
         

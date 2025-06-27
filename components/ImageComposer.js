@@ -122,7 +122,7 @@ const ImageComposer = React.forwardRef(({
           backgroundColor: 'rgba(255, 255, 255, 0.1)',
           borderRadius: filter.size / 2, // Circular background
           borderWidth: 2,
-          borderColor: 'rgba(255, 252, 0, 0.8)', // Snapchat yellow border
+          borderColor: 'rgba(97, 194, 227, 0.8)', // 2nd Degree teal border
         };
 
         const emojiStyle = {

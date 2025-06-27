@@ -36,7 +36,7 @@ import {
 } from '../api';
 import { Colors, db } from '../config';
 import * as ImagePicker from 'expo-image-picker';
-import { VideoPlayer, ConversationStarterChips } from '../components';
+import { VideoPlayer, ConversationStarterChips, GradientBackground } from '../components';
 import { 
   generateConversationStarters, 
   trackConversationStarterSuccess,
@@ -536,18 +536,19 @@ export const ChatRoomScreen = ({ route, navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.snapYellow} />
-      </View>
+      <GradientBackground gradientType="chatBackground" style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </GradientBackground>
     );
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={90}
-    >
+    <GradientBackground gradientType="chatBackground" style={styles.container}>
+      <KeyboardAvoidingView 
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={90}
+      >
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -660,14 +661,17 @@ export const ChatRoomScreen = ({ route, navigation }) => {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+  },
+  keyboardContainer: {
+    flex: 1,
   },
   centerContainer: {
     flex: 1,
@@ -767,19 +771,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderTopWidth: 1,
-    borderTopColor: Colors.lightGray,
-    backgroundColor: Colors.white,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    elevation: 8,
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    // Frosted glass effect
+    overflow: 'hidden',
   },
   textInput: {
     flex: 1,
     marginRight: 8,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: Colors.lightGray,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     maxHeight: 100,
+    elevation: 2,
+    shadowColor: 'rgba(0, 0, 0, 0.05)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    // Frosted glass effect
+    overflow: 'hidden',
   },
   settingRow: {
     flexDirection: 'row',

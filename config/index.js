@@ -1,5 +1,5 @@
 import { Images } from "./images";
-import { Colors } from "./theme";
+import { Colors, Gradients } from "./theme";
 import { RAG_CONFIG, getOpenAIClient, getPineconeClient, getRagIndex } from "./rag";
 
 // Using mock Firebase for ALL builds temporarily (Phase 7 camera testing)
@@ -30,4 +30,4 @@ export {
   deleteObject
 } from './firebase-mock';
 
-export { Images, Colors, auth, db, storage, RAG_CONFIG, getOpenAIClient, getPineconeClient, getRagIndex };
+export { Images, Colors, Gradients, auth, db, storage, RAG_CONFIG, getOpenAIClient, getPineconeClient, getRagIndex };

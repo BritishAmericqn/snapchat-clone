@@ -41,7 +41,7 @@ export const SignupScreen = ({ navigation }) => {
         {/* LogoContainer: consist app logo and screen title */}
         <View style={styles.logoContainer}>
           <Logo uri={Images.logo} />
-          <Text style={styles.screenTitle}>Join Snapchat</Text>
+          <Text style={styles.screenTitle}>Join 2nd Degree</Text>
         </View>
         {/* Formik Wrapper */}
         <Formik

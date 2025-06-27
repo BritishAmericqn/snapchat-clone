@@ -15,12 +15,15 @@ import {
   Badge,
   Title,
   FAB,
-  Searchbar
+  Searchbar,
+  IconButton
 } from 'react-native-paper';
 import { AuthenticatedUserContext } from '../providers';
 import { getUserChats, cleanupExpiredMessages } from '../api';
-import { Colors, db } from '../config';
+import { Colors, Gradients, db } from '../config';
 import { useFocusEffect } from '@react-navigation/native';
+import { GradientBackground } from '../components';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export const ChatListScreen = ({ navigation }) => {
   const { user } = useContext(AuthenticatedUserContext);
@@ -127,51 +130,56 @@ export const ChatListScreen = ({ navigation }) => {
     
     return (
       <TouchableOpacity onPress={() => navigateToChat(item)}>
-        <List.Item
-          title={item.otherUser?.displayName || item.otherUser?.username || 'Unknown User'}
-          description={lastMessageText}
-          descriptionNumberOfLines={1}
-          descriptionStyle={styles.lastMessage}
-          left={props => (
-            <View style={styles.avatarContainer}>
-              <Avatar.Text 
-                {...props} 
-                size={48}
-                label={item.otherUser?.displayName?.[0] || item.otherUser?.username?.[0] || '?'} 
-                style={styles.avatar}
-              />
-              {unreadCount > 0 && (
-                <Badge style={styles.unreadBadge}>{unreadCount}</Badge>
-              )}
-            </View>
-          )}
-          right={props => (
-            <View style={styles.rightContent}>
-              <Text style={styles.timeText}>{lastMessageTime}</Text>
-            </View>
-          )}
-          style={styles.listItem}
-        />
+        <View style={styles.chatItemGradient}>
+          <List.Item
+            title={item.otherUser?.displayName || item.otherUser?.username || 'Unknown User'}
+            description={lastMessageText}
+            descriptionNumberOfLines={1}
+            descriptionStyle={styles.lastMessage}
+            left={props => (
+              <View style={styles.avatarContainer}>
+                <Avatar.Text 
+                  {...props} 
+                  size={48}
+                  label={item.otherUser?.displayName?.[0] || item.otherUser?.username?.[0] || '?'} 
+                  style={styles.avatar}
+                />
+                {unreadCount > 0 && (
+                  <Badge style={styles.unreadBadge}>{unreadCount}</Badge>
+                )}
+              </View>
+            )}
+            right={props => (
+              <View style={styles.rightContent}>
+                <Text style={styles.timeText}>{lastMessageTime}</Text>
+              </View>
+            )}
+            style={styles.listItem}
+          />
+        </View>
       </TouchableOpacity>
     );
   };
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.snapYellow} />
-      </View>
+      <GradientBackground gradientType="chatBackground" style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </GradientBackground>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Searchbar
-        placeholder="Search chats..."
-        onChangeText={handleSearch}
-        value={searchQuery}
-        style={styles.searchBar}
-      />
+    <GradientBackground gradientType="chatBackground" style={styles.container}>
+      <View style={styles.searchBarContainer}>
+        <Searchbar
+          placeholder="Search chats..."
+          onChangeText={handleSearch}
+          value={searchQuery}
+          style={styles.searchBar}
+          iconColor={Colors.primary}
+        />
+      </View>
       
       {filteredChats.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -184,37 +192,69 @@ export const ChatListScreen = ({ navigation }) => {
               : 'Start a conversation with your friends!'}
           </Text>
           
-          {/* Friend Management Options in Empty State */}
+          {/* Professional Friend Management Options with Gradients */}
           {!searchQuery && (
             <View style={styles.friendManagementSection}>
               <Text style={styles.sectionTitle}>Find Friends</Text>
               
               <TouchableOpacity 
-                style={styles.friendManagementButton}
                 onPress={() => navigation.navigate('SearchUsers')}
               >
-                <Text style={styles.friendManagementButtonText}>🔍 Search Users</Text>
+                <View style={styles.friendManagementCard}>
+                  <IconButton
+                    icon="account-search"
+                    size={24}
+                    iconColor={Colors.primary}
+                    style={styles.cardIcon}
+                  />
+                  <Text style={styles.cardTitle}>Search Users</Text>
+                  <Text style={styles.cardDescription}>Find people to connect with</Text>
+                </View>
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={styles.friendManagementButton}
                 onPress={() => navigation.navigate('FriendSuggestions')}
               >
-                <Text style={styles.friendManagementButtonText}>👥 Friend Suggestions</Text>
+                <View style={styles.friendManagementCard}>
+                  <IconButton
+                    icon="account-group"
+                    size={24}
+                    iconColor={Colors.primary}
+                    style={styles.cardIcon}
+                  />
+                  <Text style={styles.cardTitle}>Friend Suggestions</Text>
+                  <Text style={styles.cardDescription}>Discover people you may know</Text>
+                </View>
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={styles.friendManagementButton}
                 onPress={() => navigation.navigate('FriendRequests')}
               >
-                <Text style={styles.friendManagementButtonText}>📨 Friend Requests</Text>
+                <View style={styles.friendManagementCard}>
+                  <IconButton
+                    icon="account-multiple-plus"
+                    size={24}
+                    iconColor={Colors.primary}
+                    style={styles.cardIcon}
+                  />
+                  <Text style={styles.cardTitle}>Friend Requests</Text>
+                  <Text style={styles.cardDescription}>Manage pending requests</Text>
+                </View>
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={styles.friendManagementButton}
                 onPress={() => navigation.navigate('FriendsList')}
               >
-                <Text style={styles.friendManagementButtonText}>👫 My Friends</Text>
+                <View style={styles.friendManagementCard}>
+                  <IconButton
+                    icon="account-multiple"
+                    size={24}
+                    iconColor={Colors.primary}
+                    style={styles.cardIcon}
+                  />
+                  <Text style={styles.cardTitle}>My Friends</Text>
+                  <Text style={styles.cardDescription}>View your connections</Text>
+                </View>
               </TouchableOpacity>
             </View>
           )}
@@ -228,49 +268,86 @@ export const ChatListScreen = ({ navigation }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={[Colors.snapYellow]}
+              colors={[Colors.primary]}
             />
           }
           contentContainerStyle={styles.listContent}
         />
       )}
       
-      <FAB
-        icon="message-plus"
-        style={styles.fab}
-        onPress={navigateToNewChat}
-        color={Colors.black}
-      />
-    </View>
+      <View style={styles.fab}>
+        <FAB
+          icon="message-plus"
+          onPress={navigateToNewChat}
+          color={Colors.black}
+          style={styles.fabButton}
+        />
+      </View>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  searchBar: {
+  searchBarContainer: {
     margin: 16,
-    elevation: 2,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: 8,
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    // Frosted glass effect
+    overflow: 'hidden',
+  },
+  searchBar: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    elevation: 0,
+    borderRadius: 16,
   },
   listContent: {
     paddingBottom: 80,
   },
+  chatItemGradient: {
+    marginHorizontal: 12,
+    marginVertical: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    elevation: 6,
+    shadowColor: 'rgba(0, 0, 0, 0.08)',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    // Frosted glass effect
+    overflow: 'hidden',
+    backdropFilter: 'blur(10px)', // Note: This won't work in RN, but good for documentation
+  },
   listItem: {
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.lightGray,
+    backgroundColor: 'transparent',
+    borderRadius: 12,
   },
   avatarContainer: {
     position: 'relative',
   },
   avatar: {
-    backgroundColor: Colors.snapYellow,
+    backgroundColor: Colors.primary,
+    elevation: 2,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
   },
   unreadBadge: {
     position: 'absolute',
@@ -279,7 +356,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.red,
   },
   lastMessage: {
-    color: Colors.gray,
+    color: Colors.black,
   },
   rightContent: {
     justifyContent: 'center',
@@ -293,51 +370,61 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: 20,
   },
   emptyTitle: {
     fontSize: 20,
     marginBottom: 10,
     textAlign: 'center',
+    color: Colors.black,
   },
   emptyText: {
     fontSize: 16,
     color: Colors.gray,
     textAlign: 'center',
+    marginBottom: 30,
   },
   friendManagementSection: {
-    marginTop: 30,
-    alignItems: 'center',
     width: '100%',
     paddingHorizontal: 20,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     marginBottom: 20,
     color: Colors.black,
+    textAlign: 'center',
   },
-  friendManagementButton: {
-    width: '100%',
-    padding: 15,
-    backgroundColor: Colors.white,
+  friendManagementCard: {
     borderWidth: 1,
-    borderColor: Colors.lightGray,
-    borderRadius: 10,
-    marginBottom: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    elevation: 8,
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    // Frosted glass effect
+    overflow: 'hidden',
   },
-  friendManagementButtonText: {
+  cardIcon: {
+    margin: 0,
+    marginBottom: 4,
+  },
+  cardTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: Colors.black,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  cardDescription: {
+    fontSize: 14,
+    color: Colors.gray,
     textAlign: 'center',
   },
   fab: {
@@ -345,6 +432,20 @@ const styles = StyleSheet.create({
     margin: 16,
     right: 0,
     bottom: 0,
-    backgroundColor: Colors.snapYellow,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    elevation: 12,
+    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    // Frosted glass effect
+    overflow: 'hidden',
+  },
+  fabButton: {
+    backgroundColor: 'transparent',
+    elevation: 0,
   },
 }); 

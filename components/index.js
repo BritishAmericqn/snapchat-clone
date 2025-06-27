@@ -17,6 +17,7 @@ import ImageComposer from './ImageComposer';
 import VideoPlayer from './VideoPlayer';
 import { TagSuggestionSection } from './TagSuggestionSection';
 import { ConversationStarterChips } from './ConversationStarterChips';
+import { GradientBackground } from './GradientBackground';
 
 export {
   View,
@@ -38,4 +39,5 @@ export {
   VideoPlayer,
   TagSuggestionSection,
   ConversationStarterChips,
+  GradientBackground,
 };

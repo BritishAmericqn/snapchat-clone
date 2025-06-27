@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthenticatedUserContext } from '../providers';
 import { Colors } from '../config';
 import { getFeedPosts, getUserProfile } from '../api';
+import { GradientBackground } from '../components';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -109,10 +110,10 @@ export const StoriesScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
+    <GradientBackground gradientType="darkSwirl" style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
-      {/* Header */}
+      {/* Header with frosted glass */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Stories</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Camera')}>
@@ -135,22 +136,33 @@ export const StoriesScreen = ({ navigation }) => {
         <Text style={styles.sectionTitle}>Discover</Text>
         <Text style={styles.comingSoon}>Coming Soon...</Text>
       </View>
-    </View>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.black,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 50,
+    paddingTop: 60, // Account for translucent status bar
     paddingBottom: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    elevation: 8,
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    // Frosted glass effect
+    overflow: 'hidden',
   },
   headerTitle: {
     fontSize: 22,

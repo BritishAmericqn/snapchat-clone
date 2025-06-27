@@ -6,11 +6,9 @@ import * as Haptics from 'expo-haptics';
 import { ChatListScreen } from './ChatListScreen';
 import { CameraScreen } from './CameraScreen';
 import { StoriesScreen } from './StoriesScreen';
-import { Colors, Gradients } from '../config';
+import { Colors } from '../config';
 import { AuthenticatedUserContext } from '../providers';
 import { getPendingFriendRequests } from '../api';
-import { GradientBackground } from '../components';
-import { LinearGradient } from 'expo-linear-gradient';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -87,24 +85,22 @@ export const MainPagerScreen = ({ navigation }) => {
   };
 
   return (
-    <GradientBackground gradientType="darkSwirl" style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
       
-      {/* Enhanced header with frosted glass */}
+      {/* Ultra-minimal header with icons only */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          {/* Profile Avatar with enhanced glow */}
+          {/* Profile Avatar */}
           <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-            <View style={styles.avatarGlow}>
-              <Avatar.Text 
-                size={36}
-                label={user?.displayName?.[0] || user?.username?.[0] || '?'} 
-                style={styles.profileAvatar}
-              />
-            </View>
+            <Avatar.Text 
+              size={32}
+              label={user?.displayName?.[0] || user?.username?.[0] || '?'} 
+              style={styles.profileAvatar}
+            />
           </TouchableOpacity>
 
-          {/* Icon Navigation with enhanced active states */}
+          {/* Ultra-minimal Icon Navigation - Icons Only */}
           <View style={styles.tabBar}>
             {pages.map((page, index) => {
               const isActive = currentPage === index;
@@ -112,36 +108,18 @@ export const MainPagerScreen = ({ navigation }) => {
                 <TouchableOpacity
                   key={page.key}
                   style={[
-                    styles.iconTab,
+                    styles.minimalIconTab,
+                    isActive && styles.activeMinimalTab
                   ]}
                   onPress={() => handlePageSelected(index)}
-                  activeOpacity={0.7}
+                  activeOpacity={0.6}
                 >
-                  {isActive ? (
-                    <View style={styles.activeIconTab}>
-                      <IconButton
-                        icon={page.activeIcon}
-                        size={24}
-                        iconColor={Colors.primary}
-                        style={styles.tabIcon}
-                      />
-                      <Text style={[styles.tabLabel, styles.activeTabLabel]}>
-                        {page.title}
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={styles.inactiveIconTab}>
-                      <IconButton
-                        icon={page.icon}
-                        size={24}
-                        iconColor={Colors.white}
-                        style={styles.tabIcon}
-                      />
-                      <Text style={styles.tabLabel}>
-                        {page.title}
-                      </Text>
-                    </View>
-                  )}
+                  <IconButton
+                    icon={isActive ? page.activeIcon : page.icon}
+                    size={26}
+                    iconColor={isActive ? Colors.black : Colors.white}
+                    style={styles.minimalTabIcon}
+                  />
                 </TouchableOpacity>
               );
             })}
@@ -151,21 +129,21 @@ export const MainPagerScreen = ({ navigation }) => {
           <View style={styles.headerRight}>
             <IconButton
               icon="account-search"
-              size={22}
+              size={20}
               iconColor={Colors.white}
               onPress={() => navigation.navigate('SearchUsers')}
-              style={styles.actionButton}
+              style={styles.minimalActionButton}
             />
             <View style={styles.friendRequestContainer}>
               <IconButton
                 icon="account-multiple-plus"
-                size={22}
+                size={20}
                 iconColor={Colors.white}
                 onPress={() => navigation.navigate('FriendRequests')}
-                style={styles.actionButton}
+                style={styles.minimalActionButton}
               />
               {pendingRequestsCount > 0 && (
-                <Badge style={styles.badge} size={16}>
+                <Badge style={styles.badge} size={14}>
                   {pendingRequestsCount}
                 </Badge>
               )}
@@ -178,54 +156,27 @@ export const MainPagerScreen = ({ navigation }) => {
       <View style={styles.screenContainer}>
         {renderCurrentScreen()}
       </View>
-      
-      {/* Development Build Ready Message with frosted glass */}
-      {__DEV__ && (
-        <View style={styles.devNote}>
-          <Text style={styles.devNoteText}>
-            💡 Swipe navigation will work in development build
-          </Text>
-        </View>
-      )}
-    </GradientBackground>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.black,
   },
   header: {
+    backgroundColor: Colors.black,
     paddingTop: 50, // Account for status bar
-    paddingBottom: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    elevation: 16,
-    shadowColor: 'rgba(0, 0, 0, 0.2)',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    // Frosted glass effect
-    overflow: 'hidden',
+    paddingBottom: 8,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.darkGray,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-  },
-  avatarGlow: {
-    borderRadius: 20,
-    padding: 2,
-    backgroundColor: Colors.zimaBlueAlpha + '30',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 5,
+    paddingHorizontal: 20,
   },
   profileAvatar: {
     backgroundColor: Colors.primary,
@@ -235,100 +186,46 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 32,
   },
-  iconTab: {
+  minimalIconTab: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 8,
-    minWidth: 60,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginHorizontal: 12,
   },
-  activeIconTab: {
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    elevation: 8,
-    shadowColor: 'rgba(0, 0, 0, 0.15)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    // Frosted glass effect
-    overflow: 'hidden',
+  activeMinimalTab: {
+    backgroundColor: Colors.primary,
   },
-  inactiveIconTab: {
-    paddingVertical: 4,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-  },
-  tabIcon: {
+  minimalTabIcon: {
     margin: 0,
-    width: 32,
-    height: 32,
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: Colors.gray,
-    marginTop: -4,
-    textAlign: 'center',
-  },
-  activeTabLabel: {
-    color: Colors.primary,
-    fontWeight: '600',
+    width: 48,
+    height: 48,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  actionButton: {
+  minimalActionButton: {
     margin: 0,
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
   },
   friendRequestContainer: {
     position: 'relative',
   },
   badge: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 2,
+    right: 2,
     backgroundColor: Colors.red,
     color: Colors.white,
     fontWeight: '600',
-    fontSize: 10,
+    fontSize: 9,
   },
   screenContainer: {
     flex: 1,
-  },
-  devNote: {
-    position: 'absolute',
-    bottom: 50,
-    left: 20,
-    right: 20,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    elevation: 8,
-    shadowColor: 'rgba(0, 0, 0, 0.1)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    // Frosted glass effect
-    overflow: 'hidden',
-  },
-  devNoteText: {
-    color: Colors.white,
-    textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '600',
-    textShadowColor: Colors.black,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
 }); 

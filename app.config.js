@@ -2,16 +2,16 @@ import "dotenv/config";
 
 export default {
   expo: {
-    name: "Snapchat Clone",
-    slug: "snapchat-clone",
+    name: "2nd Degree",
+    slug: "2nd-degree",
     platforms: ["ios", "android"],
     version: "0.1.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     splash: {
       image: "./assets/splash.png",
-      resizeMode: "cover",
-      backgroundColor: "#FFFC00",
+      resizeMode: "contain",
+      backgroundColor: "#61c2e3",
     },
     updates: {
       fallbackToCacheTimeout: 0,
@@ -21,30 +21,30 @@ export default {
       [
         "expo-image-picker",
         {
-          photosPermission: "The app accesses your photos to let you share them with friends.",
-          cameraPermission: "The app accesses your camera to let you take photos and videos to share with friends."
+          photosPermission: "2nd Degree accesses your photos to let you share them with friends.",
+          cameraPermission: "2nd Degree accesses your camera to let you take photos and videos to share with friends."
         }
       ],
       [
         "expo-camera",
         {
-          cameraPermission: "Allow Snapchat Clone to access your camera to take photos and videos.",
-          microphonePermission: "Allow Snapchat Clone to access your microphone to record videos with sound.",
+          cameraPermission: "Allow 2nd Degree to access your camera to take photos and videos.",
+          microphonePermission: "Allow 2nd Degree to access your microphone to record videos with sound.",
           recordAudioAndroid: true
         }
       ]
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.snapchatclone.app",
+      bundleIdentifier: "com.2nddegree.app",
       infoPlist: {
-        NSCameraUsageDescription: "This app uses the camera to take photos and videos to share with friends.",
-        NSMicrophoneUsageDescription: "This app uses the microphone to record videos with sound.",
-        NSPhotoLibraryUsageDescription: "This app uses the photo library to let you share photos with friends."
+        NSCameraUsageDescription: "2nd Degree uses the camera to take photos and videos to share with friends.",
+        NSMicrophoneUsageDescription: "2nd Degree uses the microphone to record videos with sound.",
+        NSPhotoLibraryUsageDescription: "2nd Degree uses the photo library to let you share photos with friends."
       }
     },
     android: {
-      package: "com.snapchatclone.app",
+      package: "com.2nddegree.app",
       permissions: [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",

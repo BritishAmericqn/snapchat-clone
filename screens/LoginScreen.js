@@ -38,7 +38,7 @@ export const LoginScreen = ({ navigation }) => {
           {/* LogoContainer: consist app logo and screen title */}
           <View style={styles.logoContainer}>
             <Logo uri={Images.logo} />
-            <Text style={styles.screenTitle}>Snapchat Clone</Text>
+            <Text style={styles.screenTitle}>2nd Degree</Text>
           </View>
           <Formik
             initialValues={{
@@ -121,7 +121,7 @@ export const LoginScreen = ({ navigation }) => {
 
       {/* App info footer */}
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Snapchat Clone MVP</Text>
+        <Text style={styles.footerText}>2nd Degree</Text>
       </View>
     </>
   );

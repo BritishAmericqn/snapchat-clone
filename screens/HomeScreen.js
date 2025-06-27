@@ -84,7 +84,7 @@ export const HomeScreen = ({ navigation }) => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.content}>
-        <Title style={styles.title}>Welcome to Snapchat Clone! 👻</Title>
+                  <Title style={styles.title}>Welcome to 2nd Degree! 🌐</Title>
         
         <Card style={styles.card}>
           <Card.Title title="Quick Actions" />

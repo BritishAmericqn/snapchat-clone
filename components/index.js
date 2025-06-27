@@ -18,6 +18,8 @@ import VideoPlayer from './VideoPlayer';
 import { TagSuggestionSection } from './TagSuggestionSection';
 import { ConversationStarterChips } from './ConversationStarterChips';
 import { GradientBackground } from './GradientBackground';
+import { UserRecommendationSection } from './UserRecommendationSection';
+import { StoryDiscoverySection } from './StoryDiscoverySection';
 
 export {
   View,
@@ -40,4 +42,6 @@ export {
   TagSuggestionSection,
   ConversationStarterChips,
   GradientBackground,
+  UserRecommendationSection,
+  StoryDiscoverySection,
 };

@@ -1,5 +1,5 @@
 // Image Analysis and Embedding API using OpenAI Vision
-import { getOpenAIClient, RAG_CONFIG } from '../config/rag';
+import { getOpenAIClient, RAG_CONFIG, getModelConfig, getCachedResponse, setCachedResponse, performanceStats } from '../config/rag.js';
 import * as FileSystem from 'expo-file-system';
 
 // Rate limiting store (in-memory for MVP)
@@ -12,16 +12,43 @@ const analyticsStore = {
   userPreferences: new Map(),
 };
 
+// Cache store for recommendations (in-memory for MVP)
+const recommendationCache = new Map();
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+const CACHE_KEY_PREFIX = {
+  USER_RECOMMENDATIONS: 'user_rec_',
+  STORY_DISCOVERY: 'story_disc_',
+  USER_ANALYSIS: 'user_analysis_'
+};
+
 /**
- * Generate caption suggestions using OpenAI Vision API
+ * Generate caption suggestions using OpenAI Vision API (OPTIMIZED)
  * @param {string} imageUri - URI of the image to analyze
  * @param {string} userId - User ID for analytics and rate limiting
  * @param {Object} options - Additional options for caption generation
  * @returns {Promise<Object>} - Caption suggestions and analysis
  */
 export const generateCaptionSuggestions = async (imageUri, userId, options = {}) => {
+  const startTime = Date.now();
+  
   try {
-    console.log('[Embeddings] Generating caption suggestions for image:', imageUri);
+    console.log('[Embeddings] 🚀 OPTIMIZED: Generating caption suggestions for image:', imageUri);
+    
+    // Check cache first (5-minute cache for same image + style)
+    const cacheKey = `captions_${imageUri.slice(-20)}_${options.style || 'casual'}`;
+    const cachedResult = getCachedResponse(cacheKey);
+    if (cachedResult) {
+      performanceStats.cacheHits++;
+      console.log('[Embeddings] ⚡ Cache hit! Returning cached captions in ~10ms');
+      return {
+        ...cachedResult,
+        metadata: {
+          ...cachedResult.metadata,
+          fromCache: true,
+          responseTime: Date.now() - startTime
+        }
+      };
+    }
     
     // Rate limiting check
     if (!checkRateLimit(userId, 'captionGeneration')) {
@@ -32,7 +59,10 @@ export const generateCaptionSuggestions = async (imageUri, userId, options = {})
     analyticsStore.captionRequests++;
     
     const openai = getOpenAIClient();
-    const config = RAG_CONFIG.openai;
+    
+    // 🚀 OPTIMIZATION: Use vision model (gpt-4o-mini) instead of full GPT-4
+    const config = getModelConfig('captions');
+    console.log('[Embeddings] 📊 Using optimized model:', config.model, 'for captions');
     
     // Prepare image for analysis
     const imageData = await prepareImageForAnalysis(imageUri);
@@ -40,11 +70,11 @@ export const generateCaptionSuggestions = async (imageUri, userId, options = {})
     // Create prompt for caption generation
     const prompt = createCaptionPrompt(options.style || 'casual');
     
-    // Call OpenAI Vision API
+    // Call OpenAI Vision API with optimized settings
     const response = await openai.chat.completions.create({
-      model: config.model,
-      temperature: config.temperature,
-      max_tokens: config.maxTokens,
+      model: config.model,              // 🚀 Faster model
+      temperature: config.temperature,  // Optimized temperature
+      max_tokens: config.maxTokens,     // Fewer tokens = faster
       messages: [
         {
           role: "user",
@@ -57,7 +87,7 @@ export const generateCaptionSuggestions = async (imageUri, userId, options = {})
               type: "image_url",
               image_url: {
                 url: imageData,
-                detail: config.imageDetail
+                detail: config.imageDetail || 'low'  // 🚀 Low detail = 2-3x faster
               }
             }
           ]
@@ -99,6 +129,11 @@ export const generateCaptionSuggestions = async (imageUri, userId, options = {})
       }
     });
     
+    // Track performance stats
+    performanceStats.visionModelCalls++;
+    const responseTime = Date.now() - startTime;
+    console.log(`[Embeddings] ⚡ Vision model response time: ${responseTime}ms`);
+    
     // Parse response with markdown code block handling
     let responseContent = response.choices[0].message.content;
     
@@ -131,7 +166,7 @@ export const generateCaptionSuggestions = async (imageUri, userId, options = {})
     
     console.log('[Embeddings] Caption suggestions generated successfully:', result.captions.length);
     
-    return {
+    const finalResult = {
       success: true,
       captions: result.captions,
       analysis: result.analysis,
@@ -140,9 +175,17 @@ export const generateCaptionSuggestions = async (imageUri, userId, options = {})
         model: config.model,
         userId,
         timestamp: new Date().toISOString(),
-        usage: response.usage
+        usage: response.usage,
+        fromCache: false,
+        responseTime: responseTime
       }
     };
+    
+    // 🚀 OPTIMIZATION: Cache successful results for 5 minutes
+    setCachedResponse(cacheKey, finalResult);
+    console.log('[Embeddings] 💾 Cached result for future requests');
+    
+    return finalResult;
     
   } catch (error) {
     console.error('[Embeddings] Error generating caption suggestions:', error);
@@ -157,7 +200,8 @@ export const generateCaptionSuggestions = async (imageUri, userId, options = {})
       metadata: {
         fallback: true,
         userId,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        responseTime: Date.now() - startTime
       }
     };
   }
@@ -939,68 +983,84 @@ export const getAnalyticsSummary = () => {
  * @returns {Promise<Object>} - Generated conversation starters with advanced context
  */
 export const generateConversationStarters = async (currentUserId, otherUserId, options = {}) => {
+  const startTime = Date.now();
+  
   try {
-    console.log('[Embeddings] 🎯 Generating conversation starters with advanced intelligence for users:', currentUserId, '→', otherUserId);
+    console.log('[Embeddings] 🚀 OPTIMIZED: Generating conversation starters between users:', currentUserId, otherUserId);
+    
+    // Check cache first (conversation starters for user pairs can be cached longer)
+    const cacheKey = `conversation_${[currentUserId, otherUserId].sort().join('_')}_${options.category || 'mixed'}`;
+    const cachedResult = getCachedResponse(cacheKey);
+    if (cachedResult) {
+      performanceStats.cacheHits++;
+      console.log('[Embeddings] ⚡ Cache hit! Returning cached conversation starters in ~10ms');
+      return {
+        ...cachedResult,
+        metadata: {
+          ...cachedResult.metadata,
+          fromCache: true,
+          responseTime: Date.now() - startTime
+        }
+      };
+    }
     
     // Rate limiting check
     if (!checkRateLimit(currentUserId, 'conversationGeneration')) {
-      throw new Error('Rate limit exceeded. Please try again later.');
+      throw new Error('Rate limit exceeded for conversation generation');
     }
     
-    // Import necessary APIs
-    const { getUserProfile } = await import('./users');
-    const { getOrCreateChat } = await import('./messages');
+    // Get user profiles for context
+    const { getUserProfile } = require('./users');
+    const currentUser = await getUserProfile(currentUserId);
+    const otherUser = await getUserProfile(otherUserId);
     
-    // Get user profiles
-    const [currentUser, otherUser] = await Promise.all([
-      getUserProfile(currentUserId),
-      getUserProfile(otherUserId)
-    ]);
+    if (!currentUser || !otherUser) {
+      throw new Error('User profiles not found');
+    }
     
-    // Get or create chat to analyze history
-    const chat = await getOrCreateChat(currentUserId, otherUserId);
-    const chatId = chat.id;
+    // Validate friendship
+    const { areUsersFriends } = require('./friends');
+    const areFriends = await areUsersFriends(currentUserId, otherUserId);
+    if (!areFriends) {
+      console.log('[Embeddings] ⚠️ Users are not friends, skipping conversation suggestions');
+      throw new Error('Users must be friends to generate conversation starters');
+    }
     
-    // FEATURE 41: Analyze conversation history and tone
-    console.log('[Embeddings] 🔍 Analyzing conversation history...');
-    const conversationHistory = await analyzeConversationHistory(chatId, currentUserId, otherUserId);
+    // 🚀 OPTIMIZATION: Use fast model (GPT-3.5) for conversation generation
+    const config = getModelConfig('conversation');
+    console.log('[Embeddings] 📊 Using optimized model:', config.model, 'for conversation starters');
     
-    // FEATURE 42: Enhanced context awareness (friends' activities)
-    console.log('[Embeddings] 🎭 Analyzing enhanced context...');
+    const openai = getOpenAIClient();
+    
+    // Enhanced context analysis
     const enhancedContext = await analyzeEnhancedContext(currentUserId, otherUserId);
-    
-    // FEATURE 43: Timing intelligence
-    console.log('[Embeddings] ⏰ Analyzing optimal timing...');
-    const timingIntelligence = await analyzeOptimalTiming(currentUserId, otherUserId);
-    
-    // FEATURE 44: Activity-based topic suggestions
-    console.log('[Embeddings] 🎯 Generating activity-based topics...');
     const activityTopics = await generateActivityBasedTopics(currentUserId, otherUserId, options);
     
-    // Analyze shared context for additional insights
-    const sharedContext = await analyzeSharedContext(currentUser, otherUser);
-    
-    // Generate enhanced conversation starters using OpenAI with all intelligence
-    const enhancedPrompt = createEnhancedConversationPrompt(
+    // Create enhanced conversation prompt
+    const prompt = createEnhancedConversationPrompt(
       currentUser, 
       otherUser, 
-      {
-        ...sharedContext,
-        conversationHistory: conversationHistory.analysis,
-        enhancedContext: enhancedContext.context,
-        timingInsights: timingIntelligence.insights,
-        activityTopics: activityTopics.topics || []
-      }, 
+      enhancedContext, 
       options
     );
     
-    const openai = getOpenAIClient();
+    // 🚀 OPTIMIZATION: No image analysis needed - pure text generation with fast model
     const response = await openai.chat.completions.create({
-      model: RAG_CONFIG.openai.model,
-      temperature: 0.8,
-      max_tokens: 400,
-      messages: [{ role: "user", content: enhancedPrompt }]
+      model: config.model,              // 🚀 GPT-3.5 is 10x faster for text-only tasks
+      temperature: config.temperature,  // Optimized for conversation
+      max_tokens: config.maxTokens,     // Fewer tokens needed
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ]
     });
+    
+    // Track performance stats
+    performanceStats.fastModelCalls++;
+    const responseTime = Date.now() - startTime;
+    console.log(`[Embeddings] ⚡ Fast model response time: ${responseTime}ms`);
     
     // Parse response with markdown code block handling
     let responseContent = response.choices[0].message.content;
@@ -1019,66 +1079,36 @@ export const generateConversationStarters = async (currentUserId, otherUserId, o
     
     const result = JSON.parse(responseContent);
     
-    // Enhance suggestions with unique IDs and advanced metadata
-    const enhancedSuggestions = result.suggestions.map((suggestion, index) => ({
-      id: `starter_${Date.now()}_${index}`,
-      text: suggestion.text,
-      reasoning: suggestion.reasoning,
-      category: suggestion.category,
-      confidence: suggestion.confidence || 'medium',
-      intelligenceUsed: {
-        conversationHistory: !!conversationHistory.success,
-        enhancedContext: !!enhancedContext.success,
-        timingIntelligence: !!timingIntelligence.success,
-        activityBased: !!activityTopics.success
-      },
-      metadata: {
-        conversationStage: conversationHistory.analysis?.conversationStage,
-        connectionStrength: enhancedContext.insights?.connectionStrength,
-        timingConfidence: timingIntelligence.recommendations?.confidence,
-        basedOnActivities: activityTopics.topics?.length || 0
-      }
-    }));
-    
-    // Create comprehensive context analysis for UI display
-    const contextAnalysis = createContextAnalysisForUI(
-      conversationHistory,
-      enhancedContext,
-      timingIntelligence,
-      activityTopics,
-      sharedContext
-    );
-    
-    console.log('[Embeddings] ✅ Enhanced conversation starters generated:', enhancedSuggestions.length);
-    
-    return {
+    const finalResult = {
       success: true,
-      suggestions: enhancedSuggestions,
+      suggestions: result.suggestions || [],
       context: {
-        contextAnalysis,
-        connectionStrength: enhancedContext.insights?.connectionStrength || 'moderate',
-        conversationStage: conversationHistory.analysis?.conversationStage || 'new',
-        timingRecommendation: timingIntelligence.insights || 'No specific timing data available',
-        sharedInterests: sharedContext.sharedInterests || [],
-        mutualFriends: sharedContext.mutualFriends || []
-      },
-      intelligence: {
-        conversationHistory: conversationHistory.success ? conversationHistory : null,
-        enhancedContext: enhancedContext.success ? enhancedContext : null,
-        timingIntelligence: timingIntelligence.success ? timingIntelligence : null,
-        activityTopics: activityTopics.success ? activityTopics : null
+        connectionStrength: enhancedContext?.connectionStrength || 'developing',
+        sharedTopics: enhancedContext?.sharedInterests || [],
+        contextAnalysis: result.contextAnalysis || 'General conversation starters',
+        activityTopics: activityTopics.topics || []
       },
       metadata: {
-        model: RAG_CONFIG.openai.model,
-        userId: currentUserId,
+        model: config.model,
+        currentUserId,
+        otherUserId, 
         timestamp: new Date().toISOString(),
         usage: response.usage,
-        advancedFeaturesUsed: 4 // Features 41-44 used
+        fromCache: false,
+        responseTime: responseTime
       }
     };
     
+    // 🚀 OPTIMIZATION: Cache conversation starters for 10 minutes (longer than captions)
+    setCachedResponse(cacheKey, finalResult);
+    console.log('[Embeddings] 💾 Cached conversation starters for future requests');
+    
+    console.log('[Embeddings] Conversation starters generated successfully:', finalResult.suggestions.length);
+    
+    return finalResult;
+    
   } catch (error) {
-    console.error('[Embeddings] Error generating enhanced conversation starters:', error);
+    console.error('[Embeddings] Error generating conversation starters:', error);
     
     // Return fallback starters with basic intelligence
     const fallbackStarters = getFallbackConversationStarters(options.category);
@@ -2332,4 +2362,1273 @@ export const analyzeConversationHistory = async (chatId, currentUserId, otherUse
       insights: 'Could not analyze conversation history due to system limitations'
     };
   }
+};
+
+// ... existing code ...
+
+/**
+ * Generate smart user recommendations based on interests, behavior, and social graph
+ * @param {string} currentUserId - Current user ID
+ * @param {Object} options - Recommendation options
+ * @returns {Promise<Object>} - User recommendations with reasoning
+ */
+export const generateUserRecommendations = async (currentUserId, options = {}) => {
+  try {
+    console.log('[Embeddings] 👥 Generating user recommendations for:', currentUserId);
+    console.log('[Embeddings] 🔍 DEBUG: Options received:', JSON.stringify(options, null, 2));
+    
+    const { 
+      limit = 5,
+      includeAnalysis = true,
+      maxCacheAge = CACHE_DURATION 
+    } = options;
+    
+    console.log('[Embeddings] 🔍 DEBUG: Processed options - limit:', limit, 'includeAnalysis:', includeAnalysis);
+    
+    // Check cache first
+    const cacheKey = `${CACHE_KEY_PREFIX.USER_RECOMMENDATIONS}${currentUserId}`;
+    console.log('[Embeddings] 🔍 DEBUG: Checking cache with key:', cacheKey);
+    
+    const cached = getCachedResult(cacheKey, maxCacheAge);
+    if (cached) {
+      console.log('[Embeddings] ✅ Returning cached user recommendations');
+      return cached;
+    }
+    console.log('[Embeddings] 🔍 DEBUG: No cache found, proceeding with fresh generation');
+    
+    // Rate limiting check
+    console.log('[Embeddings] 🔍 DEBUG: Checking rate limits for userRecommendations...');
+    if (!checkRateLimit(currentUserId, 'userRecommendations')) {
+      throw new Error('Rate limit exceeded for user recommendations');
+    }
+    console.log('[Embeddings] ✅ DEBUG: Rate limit check passed');
+    
+    // Get current user profile and preferences
+    console.log('[Embeddings] 🔍 DEBUG: Importing required functions...');
+    const { getUserProfile, searchUsers } = require('./users');
+    const { getFriendSuggestions } = require('./friends');
+    console.log('[Embeddings] ✅ DEBUG: Functions imported successfully');
+    
+    console.log('[Embeddings] 🔍 DEBUG: Getting user profile for:', currentUserId);
+    const currentUser = await getUserProfile(currentUserId);
+    
+    if (!currentUser) {
+      console.log('[Embeddings] ❌ DEBUG: User profile not found for:', currentUserId);
+      throw new Error('User profile not found');
+    }
+    console.log('[Embeddings] ✅ DEBUG: User profile loaded:', {
+      username: currentUser.username,
+      bio: currentUser.bio?.substring(0, 50) + '...',
+      friendsCount: currentUser.friendIds?.length || 0
+    });
+    
+    // Check if user has opted into enhanced recommendations
+    const aiPreferences = currentUser.metadata?.aiPreferences || {
+      enableAIFeatures: true, // Default on
+      shareMetadata: true,
+      personalizeContent: true
+    };
+    
+    console.log('[Embeddings] 🔍 DEBUG: AI preferences:', aiPreferences);
+    
+    if (!aiPreferences.enableAIFeatures) {
+      console.log('[Embeddings] ⚠️ User has disabled AI features, using basic recommendations');
+      return await getBasicUserRecommendations(currentUserId, limit);
+    }
+    
+    // Get user's friends and existing data
+    const friendIds = currentUser.friendIds || [];
+    const userBio = currentUser.bio || '';
+    
+    console.log('[Embeddings] 🔍 DEBUG: User has', friendIds.length, 'friends');
+    
+    // Get potential users to analyze (excluding current user and friends)
+    console.log('[Embeddings] 🔍 DEBUG: Getting all users for recommendation...');
+    const allUsers = await getAllUsersForRecommendation(currentUserId, friendIds);
+    
+    console.log('[Embeddings] 🔍 DEBUG: Found', allUsers.length, 'potential users for recommendation');
+    
+    if (allUsers.length === 0) {
+      console.log('[Embeddings] ⚠️ No users available for recommendation');
+      return {
+        success: true,
+        recommendations: [],
+        analysis: 'No new users available for recommendation',
+        cached: false,
+        timestamp: new Date().toISOString()
+      };
+    }
+    
+    // Analyze user interests and personality from bio and posting patterns
+    let userAnalysisResult = null;
+    console.log('[Embeddings] 🔍 DEBUG: Should analyze user?', includeAnalysis && aiPreferences.personalizeContent);
+    
+    if (includeAnalysis && aiPreferences.personalizeContent) {
+      console.log('[Embeddings] 🔍 DEBUG: Starting user analysis...');
+      userAnalysisResult = await analyzeUserForRecommendations(currentUser);
+      console.log('[Embeddings] ✅ DEBUG: User analysis completed:', {
+        interests: userAnalysisResult?.interests?.length || 0,
+        personality: userAnalysisResult?.personality?.length || 0,
+        hasAnalysis: !!userAnalysisResult?.analysis
+      });
+    }
+    
+    // Generate AI-powered recommendations
+    console.log('[Embeddings] 🔍 DEBUG: Starting AI recommendation generation...');
+    const recommendations = await generateAIUserRecommendations(
+      currentUser,
+      allUsers.slice(0, 20), // Limit to 20 users for API efficiency
+      userAnalysisResult,
+      limit
+    );
+    
+    console.log('[Embeddings] ✅ DEBUG: AI recommendations generated:', recommendations.length);
+    
+    const result = {
+      success: true,
+      recommendations: recommendations.slice(0, limit),
+      analysis: userAnalysisResult?.analysis || 'Basic recommendation analysis',
+      userInterests: userAnalysisResult?.interests || [],
+      cached: false,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        totalCandidates: allUsers.length,
+        aiAnalysisEnabled: aiPreferences.personalizeContent,
+        cacheKey
+      }
+    };
+    
+    // Cache the result
+    setCachedResult(cacheKey, result);
+    
+    console.log('[Embeddings] ✅ Generated', recommendations.length, 'user recommendations');
+    return result;
+    
+  } catch (error) {
+    console.error('[Embeddings] 💥 CRITICAL ERROR in generateUserRecommendations:', error);
+    console.error('[Embeddings] 💥 Error name:', error.name);
+    console.error('[Embeddings] 💥 Error message:', error.message);
+    console.error('[Embeddings] 💥 Error stack:', error.stack);
+    
+    // Fallback to basic recommendations
+    console.log('[Embeddings] 🔄 DEBUG: Falling back to basic recommendations...');
+    try {
+      return await getBasicUserRecommendations(currentUserId, options.limit || 5);
+    } catch (fallbackError) {
+      console.error('[Embeddings] 💥 Even fallback failed:', fallbackError);
+      return {
+        success: false,
+        error: `Recommendation generation failed: ${error.message}`,
+        recommendations: [],
+        analysis: 'Error generating recommendations',
+        cached: false,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+};
+
+/**
+ * Generate smart story discovery recommendations
+ * @param {string} currentUserId - Current user ID
+ * @param {Object} options - Discovery options
+ * @returns {Promise<Object>} - Story recommendations with reasoning
+ */
+export const generateStoryDiscovery = async (currentUserId, options = {}) => {
+  try {
+    console.log('[Embeddings] 📺 Generating story discovery for:', currentUserId);
+    
+    const { 
+      limit = 10,
+      includeAnalysis = true,
+      maxCacheAge = CACHE_DURATION / 2 // Stories change more frequently
+    } = options;
+    
+    // Check cache first
+    const cacheKey = `${CACHE_KEY_PREFIX.STORY_DISCOVERY}${currentUserId}`;
+    const cached = getCachedResult(cacheKey, maxCacheAge);
+    if (cached) {
+      console.log('[Embeddings] ✅ Returning cached story discovery');
+      return cached;
+    }
+    
+    // Rate limiting check
+    if (!checkRateLimit(currentUserId, 'storyDiscovery')) {
+      throw new Error('Rate limit exceeded for story discovery');
+    }
+    
+    // Get current user profile and preferences
+    const { getUserProfile } = require('./users');
+    const { getFeedPosts } = require('./posts');
+    const currentUser = await getUserProfile(currentUserId);
+    
+    if (!currentUser) {
+      throw new Error('User profile not found');
+    }
+    
+    // Check AI preferences
+    const aiPreferences = currentUser.metadata?.aiPreferences || {
+      enableAIFeatures: true,
+      shareMetadata: true,
+      personalizeContent: true
+    };
+    
+    if (!aiPreferences.enableAIFeatures) {
+      console.log('[Embeddings] ⚠️ User has disabled AI features, using basic story discovery');
+      return await getBasicStoryDiscovery(currentUserId, limit);
+    }
+    
+    // Get user's friends and recent interactions
+    const friendIds = currentUser.friendIds || [];
+    
+    // Get all available posts/stories for analysis
+    const allPosts = await getFeedPosts(currentUserId, friendIds);
+    
+    // Analyze user's engagement patterns and preferences
+    let userPreferences = null;
+    if (includeAnalysis && aiPreferences.personalizeContent) {
+      userPreferences = await analyzeUserStoryPreferences(currentUser, allPosts);
+    }
+    
+    // Get posts from non-friends that might be interesting
+    const discoveryPosts = await getDiscoveryPosts(currentUserId, friendIds);
+    
+    if (discoveryPosts.length === 0) {
+      console.log('[Embeddings] ⚠️ No discovery posts available');
+      return {
+        success: true,
+        stories: [],
+        analysis: 'No new stories available for discovery',
+        cached: false,
+        timestamp: new Date().toISOString()
+      };
+    }
+    
+    // Generate AI-powered story recommendations
+    const storyRecommendations = await generateAIStoryRecommendations(
+      currentUser,
+      discoveryPosts.slice(0, 30), // Limit for API efficiency
+      userPreferences,
+      limit
+    );
+    
+    const result = {
+      success: true,
+      stories: storyRecommendations.slice(0, limit),
+      analysis: userPreferences?.analysis || 'Basic story discovery analysis',
+      userPreferences: userPreferences?.preferences || [],
+      cached: false,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        totalCandidates: discoveryPosts.length,
+        aiAnalysisEnabled: aiPreferences.personalizeContent,
+        cacheKey
+      }
+    };
+    
+    // Cache the result
+    setCachedResult(cacheKey, result);
+    
+    console.log('[Embeddings] ✅ Generated', storyRecommendations.length, 'story recommendations');
+    return result;
+    
+  } catch (error) {
+    console.error('[Embeddings] ❌ Error generating story discovery:', error);
+    
+    // Fallback to basic story discovery
+    return await getBasicStoryDiscovery(currentUserId, options.limit || 10);
+  }
+};
+
+// HELPER FUNCTIONS FOR RECOMMENDATIONS
+
+/**
+ * Analyze user for personalized recommendations
+ */
+const analyzeUserForRecommendations = async (user) => {
+  try {
+    console.log('[Embeddings] 🔍 Analyzing user for recommendations:', user.username);
+    
+    const openai = getOpenAIClient();
+    const bio = user.bio || '';
+    const displayName = user.displayName || user.username || '';
+    
+    const prompt = `Analyze this user profile for personalized friend recommendations:
+
+User: ${displayName}
+Bio: "${bio}"
+Friends Count: ${user.friendIds?.length || 0}
+
+Extract and analyze:
+1. **Primary Interests**: Specific hobbies, activities, passions mentioned
+2. **Personality Traits**: Communication style, energy level, social preferences
+3. **Lifestyle Indicators**: Career hints, location references, life stage
+4. **Social Preferences**: Types of connections they might value
+
+Provide insights for matching with similar users. Focus on interests that would create meaningful connections.
+
+Respond with valid JSON:`;
+    
+    const response = await openai.chat.completions.create({
+      model: RAG_CONFIG.openai.model,
+      temperature: 0.7,
+      max_tokens: 300,
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "user_analysis",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              interests: {
+                type: "array",
+                items: { type: "string" },
+                description: "Primary interests and hobbies"
+              },
+              personality: {
+                type: "array", 
+                items: { type: "string" },
+                description: "Key personality traits"
+              },
+              lifestyle: {
+                type: "array",
+                items: { type: "string" },
+                description: "Lifestyle indicators"
+              },
+              analysis: {
+                type: "string",
+                description: "Overall analysis for recommendation matching"
+              }
+            },
+            required: ["interests", "personality", "lifestyle", "analysis"],
+            additionalProperties: false
+          }
+        }
+      }
+    });
+    
+    // Parse response with comprehensive error handling
+    let responseContent = response.choices[0].message.content;
+    
+    console.log('[Embeddings] 🔍 Raw OpenAI response length:', responseContent?.length || 0);
+    console.log('[Embeddings] 🔍 Raw OpenAI response preview:', responseContent?.substring(0, 200) + '...');
+    console.log('[Embeddings] 🔍 Raw OpenAI response ending:', responseContent?.substring(responseContent.length - 100));
+    
+    if (!responseContent || responseContent.trim().length === 0) {
+      console.error('[Embeddings] ❌ Empty response from OpenAI');
+      throw new Error('Empty response from OpenAI');
+    }
+    
+    // Handle markdown code blocks
+    if (responseContent.includes('```json')) {
+      responseContent = responseContent.replace(/```json\n?/g, '').replace(/\n?```/g, '');
+    } else if (responseContent.includes('```')) {
+      responseContent = responseContent.replace(/```\n?/g, '').replace(/\n?```/g, '');
+    }
+    responseContent = responseContent.trim();
+    
+    console.log('[Embeddings] 🔍 Cleaned response for parsing:', responseContent);
+    
+    // Validate JSON before parsing
+    if (!responseContent.startsWith('{') || !responseContent.endsWith('}')) {
+      console.error('[Embeddings] ❌ Invalid JSON format - missing braces');
+      throw new Error('Invalid JSON format: missing opening or closing braces');
+    }
+    
+    let result;
+    try {
+      result = JSON.parse(responseContent);
+    } catch (parseError) {
+      console.error('[Embeddings] ❌ JSON Parse failed:', parseError.message);
+      console.error('[Embeddings] ❌ Content that failed to parse:', responseContent);
+      throw new Error(`JSON parsing failed: ${parseError.message}`);
+    }
+    
+    console.log('[Embeddings] ✅ User analysis complete:', result?.interests?.length || 0, 'interests found');
+    return result;
+    
+  } catch (error) {
+    console.error('[Embeddings] ❌ Error analyzing user:', error);
+    return {
+      interests: [],
+      personality: [],
+      lifestyle: [],
+      analysis: 'Basic profile analysis available'
+    };
+  }
+};
+
+/**
+ * Generate AI-powered user recommendations
+ */
+const generateAIUserRecommendations = async (currentUser, candidateUsers, userAnalysis, limit) => {
+  try {
+    console.log('[Embeddings] 🤖 Generating AI user recommendations for', candidateUsers.length, 'candidates');
+    
+    const openai = getOpenAIClient();
+    
+    // Prepare candidate user data for analysis
+    const candidateProfiles = candidateUsers.map(user => ({
+      id: user.uid || user.id,
+      username: user.username,
+      displayName: user.displayName,
+      bio: user.bio || '',
+      friendCount: user.friendIds?.length || 0
+    }));
+    
+    console.log('[Embeddings] 🔍 DEBUG: Current user for AI:', {
+      username: currentUser.username,
+      bio: currentUser.bio,
+      interests: userAnalysis?.interests,
+      personality: userAnalysis?.personality
+    });
+    
+    console.log('[Embeddings] 🔍 DEBUG: Candidate profiles for AI:', candidateProfiles.map(p => ({
+      username: p.username,
+      bio: p.bio
+    })));
+    
+    const prompt = `You are an expert at matching people based on shared interests and compatibility.
+
+Current User Analysis:
+- Username: ${currentUser.username}
+- Bio: "${currentUser.bio || ''}"
+- Interests: ${userAnalysis?.interests?.join(', ') || 'General'}
+- Personality: ${userAnalysis?.personality?.join(', ') || 'Friendly'}
+
+Candidate Users to Match:
+${candidateProfiles.map((user, i) => `ID: ${user.id} | @${user.username} (${user.displayName}) - "${user.bio}" [${user.friendCount} friends]`).join('\n')}
+
+Analyze each candidate and recommend the TOP ${limit} users who would be the best matches based on:
+1. **Shared Interests**: Common hobbies, passions, activities
+2. **Personality Compatibility**: Communication styles, energy levels
+3. **Social Synergy**: Likelihood of meaningful connection
+4. **Interaction Potential**: Conversation starters and shared experiences
+
+For each recommendation, provide:
+- User ID (use the exact ID from the list, like "user_gaming")
+- Match Score (1-100) 
+- Primary reason for recommendation
+- Potential conversation starter
+
+Respond with valid JSON:`;
+    
+    const response = await openai.chat.completions.create({
+      model: RAG_CONFIG.openai.model,
+      temperature: 0.8,
+      max_tokens: 500,
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "user_recommendations",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              recommendations: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    userId: { type: "string" },
+                    matchScore: { type: "number" },
+                    reason: { type: "string" },
+                    conversationStarter: { type: "string" }
+                  },
+                  required: ["userId", "matchScore", "reason", "conversationStarter"],
+                  additionalProperties: false
+                }
+              }
+            },
+            required: ["recommendations"],
+            additionalProperties: false
+          }
+        }
+      }
+    });
+    
+    // Parse response with code block handling
+    let responseContent = response.choices[0].message.content;
+    
+    console.log('[Embeddings] 🔍 DEBUG: Raw OpenAI response for recommendations:', responseContent);
+    
+    if (responseContent.includes('```json')) {
+      responseContent = responseContent.replace(/```json\n?/g, '').replace(/\n?```/g, '');
+    } else if (responseContent.includes('```')) {
+      responseContent = responseContent.replace(/```\n?/g, '').replace(/\n?```/g, '');
+    }
+    responseContent = responseContent.trim();
+    
+    console.log('[Embeddings] 🔍 DEBUG: Cleaned response for parsing:', responseContent);
+    
+    const aiResult = JSON.parse(responseContent);
+    
+    console.log('[Embeddings] 🔍 DEBUG: Parsed AI result:', aiResult);
+    
+    // Debug: Show what OpenAI returned vs what we expect
+    console.log('[Embeddings] 🔍 DEBUG: OpenAI returned userIds:', aiResult.recommendations?.map(r => r.userId));
+    console.log('[Embeddings] 🔍 DEBUG: Available candidate IDs:', candidateUsers.map(u => u.uid || u.id));
+    
+    // Enrich recommendations with full user data
+    const enrichedRecommendations = aiResult.recommendations.map(rec => {
+      const user = candidateUsers.find(u => (u.uid || u.id) === rec.userId);
+      if (!user) {
+        console.log('[Embeddings] ⚠️ DEBUG: Could not find user for ID:', rec.userId);
+      }
+      return {
+        ...rec,
+        user: user || null
+      };
+    }).filter(rec => rec.user !== null);
+    
+    console.log('[Embeddings] ✅ AI generated', enrichedRecommendations.length, 'user recommendations');
+    return enrichedRecommendations;
+    
+  } catch (error) {
+    console.error('[Embeddings] ❌ Error generating AI user recommendations:', error);
+    
+    // Fallback to simple random selection
+    return candidateUsers.slice(0, limit).map((user, index) => ({
+      userId: user.uid || user.id,
+      matchScore: 75 - (index * 5), // Decreasing score
+      reason: 'Similar interests and activity patterns',
+      conversationStarter: 'Hey! I noticed we might have some things in common 👋',
+      user
+    }));
+  }
+};
+
+/**
+ * Analyze user story preferences
+ */
+const analyzeUserStoryPreferences = async (user, recentPosts) => {
+  try {
+    console.log('[Embeddings] 📊 Analyzing user story preferences');
+    
+    const openai = getOpenAIClient();
+    
+    // Get posts user has viewed or interacted with
+    const viewedPosts = recentPosts.filter(post => 
+      post.viewedBy?.includes(user.uid) || post.authorUid === user.uid
+    );
+    
+    const postSummaries = viewedPosts.slice(0, 10).map(post => ({
+      caption: post.caption || '',
+      type: post.mediaType || 'image',
+      author: post.authorUid,
+      engagement: post.viewCount || 0
+    }));
+    
+    const prompt = `Analyze this user's story viewing patterns to understand their content preferences:
+
+User: ${user.username} (${user.displayName || ''})
+Bio: "${user.bio || ''}"
+
+Recent Story Interactions:
+${postSummaries.map((post, i) => `${i + 1}. ${post.type}: "${post.caption}" (${post.engagement} views)`).join('\n')}
+
+Based on this data, determine:
+1. **Content Themes**: What types of content do they engage with?
+2. **Visual Preferences**: Photo styles, moods, subjects they prefer
+3. **Interaction Patterns**: What makes them view or engage with stories?
+4. **Discovery Preferences**: What new content would interest them?
+
+Respond with valid JSON:`;
+    
+    const response = await openai.chat.completions.create({
+      model: RAG_CONFIG.openai.model,
+      temperature: 0.7,
+      max_tokens: 350,
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "story_preferences",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              contentThemes: {
+                type: "array",
+                items: { type: "string" },
+                description: "Preferred content themes"
+              },
+              visualPreferences: {
+                type: "array",
+                items: { type: "string" },
+                description: "Visual style preferences"
+              },
+              preferences: {
+                type: "array",
+                items: { type: "string" },
+                description: "Overall content preferences"
+              },
+              analysis: {
+                type: "string",
+                description: "Analysis summary for story recommendations"
+              }
+            },
+            required: ["contentThemes", "visualPreferences", "preferences", "analysis"],
+            additionalProperties: false
+          }
+        }
+      }
+    });
+    
+    // Parse response with code block handling
+    let responseContent = response.choices[0].message.content;
+    if (responseContent.includes('```json')) {
+      responseContent = responseContent.replace(/```json\n?/g, '').replace(/\n?```/g, '');
+    } else if (responseContent.includes('```')) {
+      responseContent = responseContent.replace(/```\n?/g, '').replace(/\n?```/g, '');
+    }
+    responseContent = responseContent.trim();
+    
+    const result = JSON.parse(responseContent);
+    
+    console.log('[Embeddings] ✅ Story preferences analyzed:', result.contentThemes.length, 'themes identified');
+    return result;
+    
+  } catch (error) {
+    console.error('[Embeddings] ❌ Error analyzing story preferences:', error);
+    return {
+      contentThemes: ['lifestyle', 'social'],
+      visualPreferences: ['bright', 'candid'],
+      preferences: ['engaging content', 'authentic moments'],
+      analysis: 'Basic story preference analysis available'
+    };
+  }
+};
+
+/**
+ * Generate AI-powered story recommendations
+ */
+const generateAIStoryRecommendations = async (currentUser, discoveryPosts, userPreferences, limit) => {
+  try {
+    console.log('[Embeddings] 🎬 Generating AI story recommendations for', discoveryPosts.length, 'stories');
+    
+    const openai = getOpenAIClient();
+    
+    // Prepare story data for analysis
+    const storyData = discoveryPosts.map((post, index) => ({
+      id: post.id || post.postId,
+      authorId: post.authorUid,
+      caption: post.caption || '',
+      type: post.mediaType || 'image',
+      viewCount: post.viewCount || 0,
+      visibility: post.visibility || 'public',
+      index: index
+    }));
+    
+    const prompt = `You are an expert at recommending engaging visual content based on user preferences.
+
+User Preferences Analysis:
+- Content Themes: ${userPreferences?.contentThemes?.join(', ') || 'varied'}
+- Visual Preferences: ${userPreferences?.visualPreferences?.join(', ') || 'engaging'}
+- User Bio: "${currentUser.bio || ''}"
+
+Available Stories for Discovery:
+${storyData.map(story => `${story.index}. [${story.type}] "${story.caption}" by ${story.authorId} (${story.viewCount} views, ${story.visibility})`).join('\n')}
+
+Recommend the TOP ${limit} stories this user would most likely engage with based on:
+1. **Content Alignment**: Matches their interest themes
+2. **Visual Appeal**: Fits their aesthetic preferences  
+3. **Discovery Value**: New, interesting, or trending content
+4. **Engagement Potential**: Likely to view, like, or share
+
+For each recommendation, provide:
+- Story index from the list
+- Engagement Score (1-100)
+- Why this story matches their preferences
+- What makes it discoverable/interesting
+
+Respond with valid JSON:`;
+    
+    const response = await openai.chat.completions.create({
+      model: RAG_CONFIG.openai.model,
+      temperature: 0.8,
+      max_tokens: 600,
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "story_recommendations",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              recommendations: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    storyIndex: { type: "number" },
+                    engagementScore: { type: "number" },
+                    reason: { type: "string" },
+                    discoveryValue: { type: "string" }
+                  },
+                  required: ["storyIndex", "engagementScore", "reason", "discoveryValue"],
+                  additionalProperties: false
+                }
+              }
+            },
+            required: ["recommendations"],
+            additionalProperties: false
+          }
+        }
+      }
+    });
+    
+    // Parse response with code block handling
+    let responseContent = response.choices[0].message.content;
+    if (responseContent.includes('```json')) {
+      responseContent = responseContent.replace(/```json\n?/g, '').replace(/\n?```/g, '');
+    } else if (responseContent.includes('```')) {
+      responseContent = responseContent.replace(/```\n?/g, '').replace(/\n?```/g, '');
+    }
+    responseContent = responseContent.trim();
+    
+    const aiResult = JSON.parse(responseContent);
+    
+    // Enrich recommendations with full story data
+    const enrichedRecommendations = aiResult.recommendations.map(rec => {
+      const story = discoveryPosts[rec.storyIndex];
+      return {
+        ...rec,
+        story: story || null
+      };
+    }).filter(rec => rec.story !== null);
+    
+    console.log('[Embeddings] ✅ AI generated', enrichedRecommendations.length, 'story recommendations');
+    return enrichedRecommendations;
+    
+  } catch (error) {
+    console.error('[Embeddings] ❌ Error generating AI story recommendations:', error);
+    
+    // Fallback to recent engaging posts
+    return discoveryPosts.slice(0, limit).map((story, index) => ({
+      storyIndex: index,
+      engagementScore: Math.max(80 - (index * 3), 50),
+      reason: 'Popular content that matches your interests',
+      discoveryValue: 'Trending in your network',
+      story
+    }));
+  }
+};
+
+// BASIC RECOMMENDATION FALLBACKS
+
+/**
+ * Basic user recommendations (no AI analysis)
+ */
+const getBasicUserRecommendations = async (currentUserId, limit) => {
+  try {
+    const { getFriendSuggestions } = require('./friends');
+    const suggestions = await getFriendSuggestions(currentUserId, limit);
+    
+    return {
+      success: true,
+      recommendations: suggestions.map(user => ({
+        userId: user.id,
+        matchScore: 70,
+        reason: `${user.mutualFriendCount || 0} mutual friends`,
+        conversationStarter: 'Hey! I think we have some mutual friends 👋',
+        user
+      })),
+      analysis: 'Basic recommendations based on mutual connections',
+      cached: false,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('[Embeddings] ❌ Error in basic user recommendations:', error);
+    return {
+      success: false,
+      recommendations: [],
+      analysis: 'No recommendations available',
+      error: error.message
+    };
+  }
+};
+
+/**
+ * Basic story discovery (no AI analysis)
+ */
+const getBasicStoryDiscovery = async (currentUserId, limit) => {
+  try {
+    const { getFeedPosts } = require('./posts');
+    const { getUserProfile } = require('./users');
+    
+    const currentUser = await getUserProfile(currentUserId);
+    const friendIds = currentUser?.friendIds || [];
+    
+    // Get public posts from non-friends
+    const allPosts = await getFeedPosts(currentUserId, []);
+    const discoveryPosts = allPosts.filter(post => 
+      post.visibility === 'public' && 
+      post.authorUid !== currentUserId &&
+      !friendIds.includes(post.authorUid)
+    );
+    
+    return {
+      success: true,
+      stories: discoveryPosts.slice(0, limit).map((story, index) => ({
+        storyIndex: index,
+        engagementScore: Math.max(75 - (index * 2), 50),
+        reason: 'Popular public content',
+        discoveryValue: 'Discover new creators',
+        story
+      })),
+      analysis: 'Basic story discovery from public content',
+      cached: false,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('[Embeddings] ❌ Error in basic story discovery:', error);
+    return {
+      success: false,
+      stories: [],
+      analysis: 'No stories available for discovery',
+      error: error.message
+    };
+  }
+};
+
+// UTILITY FUNCTIONS
+
+/**
+ * Get all users for recommendation analysis (excluding current user and friends)
+ */
+const getAllUsersForRecommendation = async (currentUserId, friendIds) => {
+  try {
+    const { db } = require('../config');
+    const snapshot = await db.collection('users').get();
+    
+    const users = [];
+    snapshot.forEach((doc) => {
+      const userData = doc.data();
+      const userId = doc.id;
+      
+      // Exclude current user and existing friends
+      if (userId !== currentUserId && !friendIds.includes(userId)) {
+        users.push({ id: userId, ...userData });
+      }
+    });
+    
+    return users;
+  } catch (error) {
+    console.error('[Embeddings] ❌ Error getting users for recommendation:', error);
+    return [];
+  }
+};
+
+/**
+ * Get posts for discovery (from non-friends)
+ */
+const getDiscoveryPosts = async (currentUserId, friendIds) => {
+  try {
+    const { db } = require('../config');
+    const snapshot = await db.collection('posts').get();
+    
+    const posts = [];
+    const now = new Date();
+    
+    snapshot.forEach((doc) => {
+      const post = { id: doc.id, ...doc.data() };
+      
+      // Filter for discovery: non-friends, not expired, public/friends-of-friends
+      const expiresAt = post.expiresAt?.toDate ? post.expiresAt.toDate() : post.expiresAt;
+      const isExpired = expiresAt && new Date(expiresAt) < now;
+      const isNonFriend = post.authorUid !== currentUserId && !friendIds.includes(post.authorUid);
+      const isDiscoverable = ['public', 'friendsOfFriends'].includes(post.visibility);
+      
+      if (isNonFriend && !isExpired && isDiscoverable) {
+        posts.push(post);
+      }
+    });
+    
+    // Sort by engagement and recency
+    posts.sort((a, b) => {
+      const scoreA = (a.viewCount || 0) + (new Date(b.createdAt) - new Date(a.createdAt)) / 3600000;
+      const scoreB = (b.viewCount || 0) + (new Date(a.createdAt) - new Date(b.createdAt)) / 3600000;
+      return scoreB - scoreA;
+    });
+    
+    return posts;
+  } catch (error) {
+    console.error('[Embeddings] ❌ Error getting discovery posts:', error);
+    return [];
+  }
+};
+
+// CACHING FUNCTIONS
+
+/**
+ * Get cached result if valid
+ */
+const getCachedResult = (cacheKey, maxAge) => {
+  const cached = recommendationCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < maxAge) {
+    cached.result.cached = true;
+    return cached.result;
+  }
+  return null;
+};
+
+/**
+ * Cache result with timestamp
+ */
+const setCachedResult = (cacheKey, result) => {
+  recommendationCache.set(cacheKey, {
+    result: { ...result, cached: false },
+    timestamp: Date.now()
+  });
+  
+  // Cleanup old cache entries (keep cache size manageable)
+  if (recommendationCache.size > 100) {
+    const entries = Array.from(recommendationCache.entries());
+    entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    for (let i = 0; i < 20; i++) {
+      recommendationCache.delete(entries[i][0]);
+    }
+  }
+};
+
+/**
+ * Clear all recommendation cache
+ */
+export const clearRecommendationCache = () => {
+  recommendationCache.clear();
+  console.log('[Embeddings] 🗑️ Recommendation cache cleared');
+};
+
+/**
+ * Get cache statistics
+ */
+export const getRecommendationCacheStats = () => {
+  return {
+    size: recommendationCache.size,
+    keys: Array.from(recommendationCache.keys()),
+    oldestEntry: Math.min(...Array.from(recommendationCache.values()).map(v => v.timestamp)),
+    newestEntry: Math.max(...Array.from(recommendationCache.values()).map(v => v.timestamp))
+  };
+};
+
+// Add rate limiting configuration for new features
+RAG_CONFIG.rateLimits = {
+  ...RAG_CONFIG.rateLimits,
+  userRecommendations: {
+    maxRequestsPerMinute: 2,
+    maxRequestsPerHour: 10
+  },
+  storyDiscovery: {
+    maxRequestsPerMinute: 3,
+    maxRequestsPerHour: 15
+  }
+};
+
+// ... existing code ...
+
+/**
+ * Generate AI-powered filter recommendations based on image analysis
+ * @param {string} imageUri - URI of the image to analyze
+ * @param {string} userId - User ID for analytics and rate limiting
+ * @param {Object} options - Options including availableFilters and includeReasoning
+ * @returns {Promise<Object>} - Filter recommendations with scores and reasoning
+ */
+export const generateFilterRecommendations = async (imageUri, userId, options = {}) => {
+  const startTime = Date.now();
+  
+  try {
+    console.log('[Embeddings] 🚀 OPTIMIZED: Generating filter recommendations for image:', imageUri);
+    
+    // Check cache first (filter recommendations for same image)
+    const cacheKey = `filters_${imageUri.slice(-20)}_${JSON.stringify(options.availableFilters || [])}`;
+    const cachedResult = getCachedResponse(cacheKey);
+    if (cachedResult) {
+      performanceStats.cacheHits++;
+      console.log('[Embeddings] ⚡ Cache hit! Returning cached filter recommendations in ~10ms');
+      return {
+        ...cachedResult,
+        metadata: {
+          ...cachedResult.metadata,
+          fromCache: true,
+          responseTime: Date.now() - startTime
+        }
+      };
+    }
+    
+    // Rate limiting check
+    if (!checkRateLimit(userId, 'textOverlayGeneration')) { // Reuse text overlay limits
+      throw new Error('Rate limit exceeded. Please try again later.');
+    }
+    
+    const openai = getOpenAIClient();
+    
+    // 🚀 OPTIMIZATION: Use vision model (gpt-4o-mini) for filter recommendations
+    const config = getModelConfig('image_analysis');
+    console.log('[Embeddings] 📊 Using optimized model:', config.model, 'for filter recommendations');
+    
+    // Prepare image for analysis
+    const imageData = await prepareImageForAnalysis(imageUri);
+    
+    // Create filter recommendation prompt
+    const prompt = createFilterRecommendationPrompt(options.availableFilters || [], options.includeReasoning);
+    
+    // Call OpenAI Vision API with optimized settings
+    const response = await openai.chat.completions.create({
+      model: config.model,              // 🚀 Faster vision model
+      temperature: config.temperature,  // Optimized temperature
+      max_tokens: config.maxTokens,     // Fewer tokens for faster response
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text", 
+              text: prompt
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageData,
+                detail: config.imageDetail || 'low'  // 🚀 Low detail = 2-3x faster
+              }
+            }
+          ]
+        }
+      ]
+    });
+    
+    // Track performance stats
+    performanceStats.visionModelCalls++;
+    const responseTime = Date.now() - startTime;
+    console.log(`[Embeddings] ⚡ Vision model response time: ${responseTime}ms`);
+    
+    // Parse response with robust error handling
+    let responseContent = response.choices[0].message.content;
+    
+    // Remove markdown code blocks if present
+    if (responseContent.includes('```json')) {
+      responseContent = responseContent.replace(/```json\n?/g, '').replace(/\n?```/g, '');
+    } else if (responseContent.includes('```')) {
+      responseContent = responseContent.replace(/```\n?/g, '').replace(/\n?```/g, '');
+    }
+    
+    // Clean up any leading/trailing whitespace
+    responseContent = responseContent.trim();
+    
+    console.log('[Embeddings] Raw OpenAI response for filter recommendations:', responseContent);
+    
+    // 🚨 ROBUST JSON PARSING with validation
+    let result;
+    try {
+      result = JSON.parse(responseContent);
+    } catch (parseError) {
+      console.error('[Embeddings] JSON parse error for filter recommendations:', parseError.message);
+      console.log('[Embeddings] Failed response content:', responseContent);
+      
+      // If JSON is incomplete, try to fix common issues
+      if (parseError.message.includes('Unexpected end of input')) {
+        console.log('[Embeddings] Attempting to fix truncated JSON response...');
+        
+        // Try to close incomplete JSON structures
+        let fixedContent = responseContent;
+        
+        // Count opening vs closing braces/brackets
+        const openBraces = (fixedContent.match(/\{/g) || []).length;
+        const closeBraces = (fixedContent.match(/\}/g) || []).length;
+        const openBrackets = (fixedContent.match(/\[/g) || []).length;
+        const closeBrackets = (fixedContent.match(/\]/g) || []).length;
+        
+        // Add missing closing braces/brackets
+        for (let i = 0; i < (openBrackets - closeBrackets); i++) {
+          fixedContent += ']';
+        }
+        for (let i = 0; i < (openBraces - closeBraces); i++) {
+          fixedContent += '}';
+        }
+        
+        try {
+          result = JSON.parse(fixedContent);
+          console.log('[Embeddings] ✅ Successfully fixed truncated JSON!');
+        } catch (secondError) {
+          console.log('[Embeddings] ❌ Could not fix JSON, using fallback');
+          throw new Error('JSON response was incomplete and could not be repaired');
+        }
+      } else {
+        throw new Error(`JSON parsing failed: ${parseError.message}`);
+      }
+    }
+    
+    // Validate result structure
+    if (!result || typeof result !== 'object') {
+      throw new Error('OpenAI returned invalid response structure');
+    }
+    
+    if (!result.recommendations || !Array.isArray(result.recommendations)) {
+      console.warn('[Embeddings] No recommendations in response, using fallback');
+      throw new Error('No valid recommendations in OpenAI response');
+    }
+    
+    const finalResult = {
+      success: true,
+      recommendations: result.recommendations || [],
+      analysis: result.analysis || {},
+      metadata: {
+        model: config.model,
+        userId,
+        timestamp: new Date().toISOString(),
+        usage: response.usage,
+        fromCache: false,
+        responseTime: responseTime
+      }
+    };
+    
+    // 🚀 OPTIMIZATION: Cache filter recommendations for 5 minutes
+    setCachedResponse(cacheKey, finalResult);
+    console.log('[Embeddings] 💾 Cached filter recommendations for future requests');
+    
+    console.log('[Embeddings] Filter recommendations generated successfully:', finalResult.recommendations.length);
+    
+    return finalResult;
+    
+  } catch (error) {
+    console.error('[Embeddings] Error generating filter recommendations:', error);
+    
+    // Return fallback recommendations on error
+    return {
+      success: false,
+      error: error.message,
+      recommendations: getFallbackFilterRecommendations(options.availableFilters || []),
+      analysis: { error: "Image analysis unavailable" },
+      metadata: {
+        fallback: true,
+        userId,
+        timestamp: new Date().toISOString(),
+        responseTime: Date.now() - startTime
+      }
+    };
+  }
+};
+
+/**
+ * Create filter recommendation prompt
+ * @param {Array} availableFilters - List of available filter IDs
+ * @param {boolean} includeReasoning - Whether to include reasoning for recommendations
+ * @returns {string} - Formatted prompt
+ */
+const createFilterRecommendationPrompt = (availableFilters, includeReasoning = true) => {
+  // Define available filters with their characteristics
+  const filterDatabase = {
+    sunglasses: { emoji: '🕶️', name: 'Sunglasses', position: 'eyes', mood: ['cool', 'casual', 'outdoor'] },
+    heart_eyes: { emoji: '😍', name: 'Heart Eyes', position: 'eyes', mood: ['romantic', 'love', 'excited'] },
+    cool_face: { emoji: '😎', name: 'Cool Face', position: 'face', mood: ['confident', 'chill', 'relaxed'] },
+    crown: { emoji: '👑', name: 'Crown', position: 'forehead', mood: ['royal', 'special', 'celebration'] },
+    fire: { emoji: '🔥', name: 'Fire', position: 'face', mood: ['hot', 'intense', 'amazing'] },
+    lightning: { emoji: '⚡', name: 'Lightning', position: 'face', mood: ['electric', 'energy', 'power'] },
+    star: { emoji: '⭐', name: 'Star', position: 'forehead', mood: ['special', 'bright', 'outstanding'] },
+    sparkle: { emoji: '✨', name: 'Sparkle', position: 'face', mood: ['magical', 'dreamy', 'beautiful'] },
+    waterfall: { emoji: '🏞️', name: 'Waterfall', position: 'face', mood: ['nature', 'peaceful', 'scenic'] },
+    mountain: { emoji: '🏔️', name: 'Mountain', position: 'face', mood: ['adventure', 'nature', 'majestic'] },
+    tree: { emoji: '🌲', name: 'Tree', position: 'face', mood: ['nature', 'green', 'outdoor'] },
+    flower: { emoji: '🌸', name: 'Flower', position: 'face', mood: ['beautiful', 'spring', 'delicate'] },
+    coffee: { emoji: '☕', name: 'Coffee', position: 'face', mood: ['morning', 'cozy', 'warm'] },
+    pizza: { emoji: '🍕', name: 'Pizza', position: 'face', mood: ['food', 'fun', 'casual'] },
+    camera: { emoji: '📸', name: 'Camera', position: 'face', mood: ['photography', 'creative', 'artistic'] },
+    music: { emoji: '🎵', name: 'Music', position: 'face', mood: ['musical', 'rhythm', 'vibe'] },
+    cat: { emoji: '🐱', name: 'Cat', position: 'face', mood: ['cute', 'playful', 'pet'] },
+    dog: { emoji: '🐶', name: 'Dog', position: 'face', mood: ['friendly', 'loyal', 'happy'] },
+    butterfly: { emoji: '🦋', name: 'Butterfly', position: 'face', mood: ['transformation', 'beauty', 'delicate'] },
+    snowflake: { emoji: '❄️', name: 'Snowflake', position: 'face', mood: ['winter', 'cold', 'unique'] },
+    cloud: { emoji: '☁️', name: 'Cloud', position: 'face', mood: ['dreamy', 'soft', 'peaceful'] },
+    moon: { emoji: '🌙', name: 'Moon', position: 'face', mood: ['night', 'mystical', 'romantic'] }
+  };
+  
+  // Filter only available filters
+  const availableFilterInfo = availableFilters
+    .filter(id => filterDatabase[id])
+    .map(id => `${id}: ${filterDatabase[id].emoji} ${filterDatabase[id].name} (${filterDatabase[id].position} placement, good for: ${filterDatabase[id].mood.join(', ')})`)
+    .join('\n');
+  
+  const prompt = `Analyze this image and recommend the TOP 3-4 emoji filters that would work best.
+
+Available filters:
+${availableFilterInfo}
+
+Consider:
+- Image content, mood, and setting
+- Facial expressions and emotions (if people present)
+- Lighting, colors, and atmosphere
+- What would enhance the visual story
+
+For each recommendation, provide:
+- filterId: exact ID from available filters
+- score: 1-100 (90-100 perfect match, 70-89 good match, 50-69 decent match)
+${includeReasoning ? '- reasoning: why this filter enhances the image (one sentence)' : ''}
+
+Also analyze the image and provide:
+- lighting: description of lighting conditions
+- mood: overall emotional tone
+- scene: brief scene description
+- faces_detected: boolean if faces are present
+
+Respond with valid JSON:
+{
+  "recommendations": [
+    {
+      "filterId": "filter_id",
+      "score": 85,
+      ${includeReasoning ? '"reasoning": "Brief explanation of why this filter works"' : ''}
+    }
+  ],
+  "analysis": {
+    "lighting": "bright natural light",
+    "mood": "happy and energetic", 
+    "scene": "outdoor portrait",
+    "faces_detected": true
+  }
+}`;
+
+  return prompt;
+};
+
+/**
+ * Get fallback filter recommendations when AI fails
+ * @param {Array} availableFilters - List of available filter IDs  
+ * @returns {Array} - Fallback filter recommendations
+ */
+const getFallbackFilterRecommendations = (availableFilters) => {
+  // Provide popular/safe filter recommendations as fallback
+  const fallbackFilters = [
+    { filterId: 'sunglasses', score: 75, reasoning: 'Classic cool look that works with most photos' },
+    { filterId: 'sparkle', score: 70, reasoning: 'Adds magical sparkle to enhance any moment' },
+    { filterId: 'fire', score: 65, reasoning: 'Shows this moment is amazing and noteworthy' },
+    { filterId: 'star', score: 60, reasoning: 'Highlights that this is a special moment' }
+  ];
+  
+  // Only return filters that are actually available
+  return fallbackFilters.filter(rec => availableFilters.includes(rec.filterId));
 };

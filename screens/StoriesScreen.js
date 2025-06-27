@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthenticatedUserContext } from '../providers';
 import { Colors } from '../config';
 import { getFeedPosts, getUserProfile } from '../api';
-import { GradientBackground } from '../components';
+import { GradientBackground, StoryDiscoverySection } from '../components';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -109,6 +109,25 @@ export const StoriesScreen = ({ navigation }) => {
     });
   };
 
+  const handleDiscoveryStoryPress = (story, recommendation) => {
+    // Navigate to story viewer with discovery story
+    navigation.navigate('StoryViewer', {
+      stories: [{ 
+        authorId: story.authorUid,
+        posts: [story],
+        hasViewed: false
+      }],
+      initialIndex: 0,
+      userProfiles: userProfiles,
+      isDiscovery: true,
+      recommendationContext: {
+        reason: recommendation.reason,
+        discoveryValue: recommendation.discoveryValue,
+        engagementScore: recommendation.engagementScore
+      }
+    });
+  };
+
   return (
     <GradientBackground gradientType="darkSwirl" style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
@@ -131,10 +150,15 @@ export const StoriesScreen = ({ navigation }) => {
         contentContainerStyle={styles.storiesContainer}
       />
 
-      {/* Discover Section Placeholder */}
-      <View style={styles.discoverSection}>
-        <Text style={styles.sectionTitle}>Discover</Text>
-        <Text style={styles.comingSoon}>Coming Soon...</Text>
+      {/* AI-Powered Discovery Section */}
+      <View style={styles.discoverSectionContainer}>
+        <StoryDiscoverySection
+          navigation={navigation}
+          onStoryPress={handleDiscoveryStoryPress}
+          limit={8}
+          showHeader={true}
+          style={styles.discoverSection}
+        />
       </View>
     </GradientBackground>
   );
@@ -221,21 +245,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
+  discoverSectionContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
   discoverSection: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.white,
-    marginBottom: 10,
-  },
-  comingSoon: {
-    fontSize: 16,
-    color: Colors.gray,
   },
 });
 

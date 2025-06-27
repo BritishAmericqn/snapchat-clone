@@ -28,22 +28,28 @@ export const ProfileScreen = ({ navigation }) => {
 
   const loadUserProfile = async () => {
     try {
+      console.log('[ProfileScreen] 🔄 Loading profile for user:', user.uid);
       const profile = await getUserProfile(user.uid);
       if (profile) {
+        console.log('[ProfileScreen] 🔍 Raw profile loaded:', profile);
+        console.log('[ProfileScreen] 🔍 Bio from database:', `"${profile.bio || ''}"`);
+        
         setUsername(profile.username || '');
         setDisplayName(profile.displayName || '');
         setBio(profile.bio || '');
         setFriendCount(profile.friendIds?.length || 0);
         
-        // Debug logging
-        console.log('[ProfileScreen] Loaded profile:', {
-          uid: user.uid,
-          friendIds: profile.friendIds,
+        console.log('[ProfileScreen] ✅ Profile state updated:', {
+          username: profile.username,
+          displayName: profile.displayName,
+          bio: profile.bio,
           friendCount: profile.friendIds?.length || 0
         });
+      } else {
+        console.log('[ProfileScreen] ⚠️ No profile found for user:', user.uid);
       }
     } catch (err) {
-      console.error('[ProfileScreen] Error loading profile:', err);
+      console.error('[ProfileScreen] ❌ Error loading profile:', err);
     } finally {
       setLoading(false);
     }
@@ -56,17 +62,29 @@ export const ProfileScreen = ({ navigation }) => {
     }
     
     try {
-      await updateUserProfile(user.uid, {
+      const updates = {
         username: username.trim(),
         displayName: displayName.trim(),
         bio: bio.trim(),
-      });
+      };
+      
+      console.log('[ProfileScreen] 🔄 Saving profile updates:', updates);
+      console.log('[ProfileScreen] 🔍 Bio being saved:', `"${bio.trim()}"`);
+      
+      await updateUserProfile(user.uid, updates);
+      
+      console.log('[ProfileScreen] ✅ Profile update completed successfully');
       
       setIsEditing(false);
       setError('');
       Alert.alert('Success', 'Profile updated successfully!');
+      
+      // Force reload to verify save
+      console.log('[ProfileScreen] 🔄 Reloading profile to verify save...');
+      setTimeout(loadUserProfile, 1000);
+      
     } catch (err) {
-      console.error('[ProfileScreen] Error updating profile:', err);
+      console.error('[ProfileScreen] ❌ Error updating profile:', err);
       setError('Failed to update profile');
     }
   };

@@ -130,6 +130,23 @@ const mockFirestoreData = {
       profilePhotoUrl: '',
       friendIds: ['user_alex', 'user_david', 'user_sophie'],
       createdAt: new Date(),
+    },
+    'user_gaming': {
+      uid: 'user_gaming',
+      email: 'gaming@example.com',
+      username: 'gamerpro',
+      displayName: 'Tyler Gaming',
+      bio: '🎮 Videogame lover | 🕹️ Retro games enthusiast | Streaming life 🎬',
+      profilePhotoUrl: '',
+      friendIds: ['user_david', 'user_chris'], // Not friends with test user!
+      createdAt: new Date(),
+      metadata: {
+        aiPreferences: {
+          enableAIFeatures: true,
+          shareMetadata: true,
+          personalizeContent: true
+        }
+      }
     }
   },
   friendRequests: {
@@ -162,6 +179,12 @@ const mockFirestoreData = {
       toUid: '12345',
       status: 'pending',
       createdAt: new Date(Date.now() - 43200000), // 12 hours ago
+    },
+    'request_gaming_to_test': {
+      fromUid: 'user_gaming',
+      toUid: '12345',
+      status: 'pending',
+      createdAt: new Date(Date.now() - 25200000), // 7 hours ago
     }
   },
   // Reactions collection for emoji reactions

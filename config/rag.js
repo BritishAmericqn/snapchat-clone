@@ -30,12 +30,41 @@ const getOpenAIApiKey = () => {
 
 // RAG Configuration
 export const RAG_CONFIG = {
-  // OpenAI Configuration
+  // Multi-tier OpenAI Configuration for optimal performance
+  models: {
+    // FAST: For simple text generation (conversation starters, recommendations)
+    fast: {
+      model: 'gpt-3.5-turbo-0125', // 10x faster, 90% cheaper than GPT-4
+      temperature: 0.7,
+      maxTokens: 150,
+      useCase: ['conversation', 'recommendations', 'simple_analysis']
+    },
+    
+    // VISION: For image analysis only (captions, text overlays)  
+    vision: {
+      model: 'gpt-4o-mini', // Much faster than full GPT-4, still good vision
+      temperature: 0.8,
+      maxTokens: 400, // ⬆️ INCREASED: Prevent JSON truncation for filter recommendations
+      imageDetail: 'low', // 2-3x faster than 'high' detail
+      useCase: ['captions', 'text_overlays', 'image_analysis']
+    },
+    
+    // HEAVY: For complex analysis only (user matching algorithms)
+    heavy: {
+      model: 'gpt-4o-2024-08-06', // Only for truly complex tasks
+      temperature: 0.9,
+      maxTokens: 300,
+      imageDetail: 'high',
+      useCase: ['complex_matching', 'detailed_analysis']
+    }
+  },
+  
+  // Legacy single model config (remove after migration)
   openai: {
-    model: 'gpt-4o-2024-08-06', // Latest stable model optimized for vision
-    temperature: 0.9, // Higher creativity for more engaging captions
-    maxTokens: 300, // More tokens for detailed, creative responses
-    imageDetail: 'high', // Higher resolution for better image analysis
+    model: 'gpt-4o-2024-08-06',
+    temperature: 0.9,
+    maxTokens: 300,
+    imageDetail: 'high',
   },
   
   // Caption Generation Settings
@@ -73,24 +102,46 @@ export const RAG_CONFIG = {
 let openaiClient = null;
 
 export const getOpenAIClient = () => {
-  // 🚨 COMPREHENSIVE DEBUGGING - Let's see exactly what's happening
-  console.log('\n🔍 [RAG DEBUG] getOpenAIClient() called');
+  // 🚨 EVEN MORE COMPREHENSIVE DEBUGGING
+  console.log('\n🔍 [RAG DEBUG] ======== getOpenAIClient() DETAILED DEBUG ========');
+  console.log('🔍 [RAG DEBUG] Function called at:', new Date().toISOString());
   console.log('🔍 [RAG DEBUG] openaiClient exists:', !!openaiClient);
   console.log('🔍 [RAG DEBUG] isExpoGo:', isExpoGo);
+  console.log('🔍 [RAG DEBUG] Constants.appOwnership:', Constants.appOwnership);
+  
+  // Test all possible sources of API key
+  console.log('\n🔍 [RAG DEBUG] TESTING ALL API KEY SOURCES:');
+  const fromExpoConfig = Constants.expoConfig?.extra?.openaiApiKey;
+  const fromProcessEnv = process.env.OPENAI_API_KEY;
+  const fromExpoConstants = Constants.manifest?.extra?.openaiApiKey;
+  const fromManifest2 = Constants.manifest2?.extra?.openaiApiKey;
+  
+  console.log('🔍 [RAG DEBUG] Constants.expoConfig?.extra?.openaiApiKey:', fromExpoConfig ? 'EXISTS' : 'MISSING');
+  console.log('🔍 [RAG DEBUG] process.env.OPENAI_API_KEY:', fromProcessEnv ? 'EXISTS' : 'MISSING');
+  console.log('🔍 [RAG DEBUG] Constants.manifest?.extra?.openaiApiKey:', fromExpoConstants ? 'EXISTS' : 'MISSING');
+  console.log('🔍 [RAG DEBUG] Constants.manifest2?.extra?.openaiApiKey:', fromManifest2 ? 'EXISTS' : 'MISSING');
   
   const apiKey = getOpenAIApiKey();
-  console.log('🔍 [RAG DEBUG] API key retrieved:', !!apiKey);
+  console.log('\n🔍 [RAG DEBUG] Final API key result:', !!apiKey);
+  console.log('🔍 [RAG DEBUG] API key length:', apiKey ? apiKey.length : 0);
+  console.log('🔍 [RAG DEBUG] API key starts with sk-:', apiKey ? apiKey.startsWith('sk-') : false);
   console.log('🔍 [RAG DEBUG] Mock condition (isExpoGo && !apiKey):', isExpoGo && !apiKey);
   
   if (!openaiClient) {
     if (isExpoGo && !apiKey) {
       // Mock client for Expo Go development
-      console.log('🚨 [RAG DEBUG] USING MOCK CLIENT - API key not found in Expo Go');
+      console.log('🚨 [RAG DEBUG] ============ USING MOCK CLIENT ============');
+      console.log('🚨 [RAG DEBUG] Reason: API key not found in Expo Go');
       console.log('🚨 [RAG DEBUG] This means environment variables are not loading properly!');
+      console.log('🚨 [RAG DEBUG] Expected: Real OpenAI API calls');
+      console.log('🚨 [RAG DEBUG] Actual: Mock responses only');
+      console.log('🚨 [RAG DEBUG] ==========================================');
       return createMockOpenAIClient();
     }
     
+    console.log('✅ [RAG DEBUG] ============ REAL OPENAI CLIENT ============');
     console.log('✅ [RAG DEBUG] API key found, attempting real OpenAI client...');
+    console.log('✅ [RAG DEBUG] Key preview:', apiKey ? apiKey.substring(0, 20) + '...' : 'NONE');
     
     try {
       openaiClient = new OpenAI({
@@ -99,15 +150,20 @@ export const getOpenAIClient = () => {
       });
       console.log('🎉 [RAG DEBUG] OpenAI client initialized successfully with REAL API!');
       console.log('🚀 [RAG DEBUG] You should now get real image analysis!');
+      console.log('🚀 [RAG DEBUG] This means user recommendations will use real AI!');
     } catch (error) {
       console.error('💥 [RAG DEBUG] Failed to initialize OpenAI client:', error);
+      console.error('💥 [RAG DEBUG] Error name:', error.name);
+      console.error('💥 [RAG DEBUG] Error message:', error.message);
       console.error('💥 [RAG DEBUG] Falling back to mock client due to error');
       return createMockOpenAIClient();
     }
   } else {
-    console.log('♻️ [RAG DEBUG] Returning existing OpenAI client');
+    console.log('♻️ [RAG DEBUG] Returning existing OpenAI client (cached)');
+    console.log('♻️ [RAG DEBUG] Client type:', openaiClient.constructor.name);
   }
   
+  console.log('🔍 [RAG DEBUG] ======== END getOpenAIClient() DEBUG ========\n');
   return openaiClient;
 };
 
@@ -119,6 +175,28 @@ const createMockOpenAIClient = () => {
       completions: {
         create: async (params) => {
           console.log('[RAG Mock] OpenAI Vision API call:', params);
+          
+          // Track mock performance based on model
+          const modelUsed = params.model;
+          if (modelUsed.includes('gpt-3.5')) {
+            performanceStats.fastModelCalls++;
+          } else if (modelUsed.includes('4o-mini')) {
+            performanceStats.visionModelCalls++;
+          } else {
+            performanceStats.heavyModelCalls++;
+          }
+          
+          // Simulate different response times based on model complexity
+          let simulatedDelay = 1500; // Default
+          if (modelUsed.includes('gpt-3.5')) {
+            simulatedDelay = 800; // Fast model - much quicker
+          } else if (modelUsed.includes('4o-mini')) {
+            simulatedDelay = 1200; // Vision model - moderate
+          } else {
+            simulatedDelay = 2500; // Heavy model - slower
+          }
+          
+          console.log(`[RAG Mock] Simulating ${simulatedDelay}ms delay for ${modelUsed}`);
           
           // Extract style from prompt
           const prompt = params.messages[0].content.find(c => c.type === 'text')?.text || '';
@@ -143,8 +221,141 @@ const createMockOpenAIClient = () => {
           
           console.log('[RAG Mock] Detected request type:', isTextOverlay ? 'textOverlay' : 'caption', 'style:', style);
           
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          // Simulate API delay based on model
+          await new Promise(resolve => setTimeout(resolve, simulatedDelay));
+          
+          // Check if this is a user analysis request
+          if (prompt.includes('Analyze this user profile for personalized friend recommendations') ||
+              prompt.includes('user profile for personalized friend recommendations')) {
+            console.log('[RAG Mock] 👥 USER ANALYSIS REQUEST DETECTED');
+            
+            // Mock user analysis response
+            return {
+              choices: [{
+                message: {
+                  content: JSON.stringify({
+                    interests: ["gaming", "technology", "entertainment", "social media"],
+                    personality: ["friendly", "outgoing", "tech-savvy", "creative"],
+                    lifestyle: ["urban", "digital native", "social", "active"],
+                    analysis: "This user appears to be a tech-savvy gaming enthusiast with strong social connections and an active lifestyle. They would connect well with others who share gaming interests or creative hobbies."
+                  })
+                }
+              }],
+              usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 }
+            };
+          }
+          
+          // Check if this is a filter recommendation request
+          if (prompt.includes('Analyze this image and recommend the TOP 3-4 emoji filters') ||
+              prompt.includes('Available filters:') ||
+              prompt.includes('filterId: exact ID from available filters')) {
+            console.log('[RAG Mock] 🎭 FILTER RECOMMENDATIONS REQUEST DETECTED');
+            
+            // Extract available filters from the prompt
+            const filterListMatch = prompt.match(/Available filters:\n(.*?)\n\nConsider:/s);
+            const availableFilters = filterListMatch ? filterListMatch[1].split('\n').map(line => {
+              const filterId = line.split(':')[0];
+              return filterId;
+            }).filter(id => id && id.trim()) : ['sunglasses', 'sparkle', 'fire', 'star'];
+            
+            console.log('[RAG Mock] Available filters for recommendations:', availableFilters);
+            
+            // Mock filter recommendations based on common use cases
+            const mockFilterRecommendations = [
+              { filterId: 'sunglasses', score: 85, reasoning: 'Cool look that works great for most photos and adds instant style' },
+              { filterId: 'sparkle', score: 78, reasoning: 'Adds magical sparkle to enhance the mood and energy of the moment' },
+              { filterId: 'fire', score: 72, reasoning: 'Shows this moment is amazing and worth highlighting to friends' },
+              { filterId: 'star', score: 68, reasoning: 'Highlights that this is a special moment worth celebrating' }
+            ].filter(rec => availableFilters.includes(rec.filterId)).slice(0, 3);
+            
+            console.log('[RAG Mock] Generated', mockFilterRecommendations.length, 'filter recommendations');
+            
+            return {
+              choices: [{
+                message: {
+                  content: JSON.stringify({
+                    recommendations: mockFilterRecommendations,
+                    analysis: {
+                      lighting: "natural daylight",
+                      mood: "positive and energetic",
+                      scene: "casual photo",
+                      faces_detected: true
+                    }
+                  })
+                }
+              }],
+              usage: { prompt_tokens: 120, completion_tokens: 80, total_tokens: 200 }
+            };
+          }
+          
+          // Check if this is a user recommendation request  
+          if (prompt.includes('You are an expert at matching people based on shared interests') ||
+              prompt.includes('recommend the TOP') ||
+              prompt.includes('Candidate Users to Match')) {
+            console.log('[RAG Mock] 🤖 USER RECOMMENDATIONS REQUEST DETECTED');
+            
+            // Extract user bio from prompt to make contextual recommendations
+            const bioMatch = prompt.match(/Bio: "(.*?)"/);
+            const userBio = bioMatch ? bioMatch[1].toLowerCase() : '';
+            
+            console.log('[RAG Mock] User bio detected:', userBio);
+            
+            // Mock recommendation logic based on bio content
+            let mockRecommendations = [];
+            
+            if (userBio.includes('game') || userBio.includes('video')) {
+              // Gaming user - recommend the gaming user
+              mockRecommendations = [{
+                userId: 'user_gaming',
+                matchScore: 92,
+                reason: 'Shared passion for videogames and retro gaming - perfect match for gaming conversations and sharing favorite titles',
+                conversationStarter: 'Hey! I saw you\'re into videogames too! What\'s your favorite retro game? 🎮'
+              }];
+            } else if (userBio.includes('music')) {
+              mockRecommendations = [{
+                userId: 'user_chris',
+                matchScore: 88,
+                reason: 'Both passionate about music - great potential for sharing musical interests and discoveries',
+                conversationStarter: 'Hey! I noticed we both love music! What genre gets you most excited? 🎵'
+              }];
+            } else if (userBio.includes('cook')) {
+              mockRecommendations = [{
+                userId: 'user_lisa',
+                matchScore: 85,
+                reason: 'Shared love for cooking and culinary adventures - perfect for sharing recipes and food experiences',
+                conversationStarter: 'Hey! Fellow cooking enthusiast here! What\'s your signature dish? 🍳'
+              }];
+            } else {
+              // Default fallback recommendations
+              mockRecommendations = [
+                {
+                  userId: 'user_alex',
+                  matchScore: 75,
+                  reason: 'Similar social energy and lifestyle preferences',
+                  conversationStarter: 'Hey! I think we might have some things in common 👋'
+                },
+                {
+                  userId: 'user_lisa',
+                  matchScore: 72,
+                  reason: 'Complementary interests and great conversation potential',
+                  conversationStarter: 'Hi! Your profile caught my attention - would love to connect! 😊'
+                }
+              ];
+            }
+            
+            console.log('[RAG Mock] Generated', mockRecommendations.length, 'mock recommendations');
+            
+            return {
+              choices: [{
+                message: {
+                  content: JSON.stringify({
+                    recommendations: mockRecommendations
+                  })
+                }
+              }],
+              usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 }
+            };
+          }
           
           if (isTextOverlay) {
             // TEXT OVERLAY SUGGESTIONS
@@ -282,4 +493,99 @@ const createMockOpenAIClient = () => {
 };
 
 // Export configured clients
-export { openaiClient }; 
+export { openaiClient };
+
+// Helper function to get optimal model config for specific use cases
+export const getModelConfig = (useCase) => {
+  const { models } = RAG_CONFIG;
+  
+  // Determine which tier to use based on use case
+  if (models.fast.useCase.includes(useCase)) {
+    return models.fast;
+  } else if (models.vision.useCase.includes(useCase)) {
+    return models.vision;
+  } else if (models.heavy.useCase.includes(useCase)) {
+    return models.heavy;
+  }
+  
+  // Fallback to fast model for unknown use cases
+  console.warn(`[RAG] Unknown use case: ${useCase}, using fast model`);
+  return models.fast;
+};
+
+// Simple in-memory cache for AI responses (prevents repeated identical calls)
+const responseCache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+export const getCachedResponse = (cacheKey) => {
+  const cached = responseCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    console.log(`[RAG Cache] Hit for key: ${cacheKey}`);
+    return cached.response;
+  }
+  return null;
+};
+
+export const setCachedResponse = (cacheKey, response) => {
+  responseCache.set(cacheKey, {
+    response,
+    timestamp: Date.now()
+  });
+  
+  // Clean up old cache entries (simple cleanup)
+  if (responseCache.size > 100) {
+    const oldestKey = responseCache.keys().next().value;
+    responseCache.delete(oldestKey);
+  }
+};
+
+// Performance monitoring
+export const performanceStats = {
+  fastModelCalls: 0,
+  visionModelCalls: 0,
+  heavyModelCalls: 0,
+  cacheHits: 0,
+  averageResponseTime: 0
+};
+
+// Get performance statistics
+export const getPerformanceStats = () => {
+  const totalCalls = performanceStats.fastModelCalls + performanceStats.visionModelCalls + performanceStats.heavyModelCalls;
+  const cacheHitRate = totalCalls > 0 ? (performanceStats.cacheHits / (totalCalls + performanceStats.cacheHits) * 100).toFixed(1) : 0;
+  
+  return {
+    ...performanceStats,
+    totalAPICalls: totalCalls,
+    cacheHitRate: `${cacheHitRate}%`,
+    modelDistribution: {
+      fast: performanceStats.fastModelCalls,
+      vision: performanceStats.visionModelCalls, 
+      heavy: performanceStats.heavyModelCalls
+    },
+    estimatedCostSavings: calculateCostSavings()
+  };
+};
+
+// Calculate estimated cost savings from using tiered models
+const calculateCostSavings = () => {
+  // Rough OpenAI pricing estimates (per 1K tokens)
+  const pricing = {
+    'gpt-4o': 0.03,           // Heavy model
+    'gpt-4o-mini': 0.015,     // Vision model
+    'gpt-3.5-turbo': 0.001    // Fast model
+  };
+  
+  // If we used GPT-4 for everything vs our tiered approach
+  const wouldHaveCost = (performanceStats.fastModelCalls + performanceStats.visionModelCalls + performanceStats.heavyModelCalls) * pricing['gpt-4o'];
+  const actualCost = (performanceStats.fastModelCalls * pricing['gpt-3.5-turbo']) + 
+                     (performanceStats.visionModelCalls * pricing['gpt-4o-mini']) +
+                     (performanceStats.heavyModelCalls * pricing['gpt-4o']);
+  
+  const savings = wouldHaveCost - actualCost;
+  const savingsPercent = wouldHaveCost > 0 ? ((savings / wouldHaveCost) * 100).toFixed(1) : 0;
+  
+  return {
+    estimatedSavings: `$${savings.toFixed(4)}`,
+    savingsPercent: `${savingsPercent}%`
+  };
+}; 

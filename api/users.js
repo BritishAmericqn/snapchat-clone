@@ -42,6 +42,20 @@ export const updateUserProfile = async (uid, updates) => {
   try {
     await db.collection('users').doc(uid).update(updates);
     console.log('[API] User profile updated:', uid);
+    
+    // 🎯 CRITICAL FIX: Clear recommendation cache when profile is updated
+    // This ensures AI recommendations reflect the updated bio/profile
+    if (updates.bio !== undefined || updates.username !== undefined || updates.displayName !== undefined) {
+      console.log('[API] 🔄 Profile content changed, clearing recommendation cache for user:', uid);
+      try {
+        const { clearRecommendationCache } = require('./embeddings');
+        clearRecommendationCache();
+        console.log('[API] ✅ Recommendation cache cleared successfully');
+      } catch (cacheError) {
+        console.error('[API] ⚠️ Failed to clear recommendation cache:', cacheError);
+        // Don't fail the profile update if cache clearing fails
+      }
+    }
   } catch (error) {
     console.error('[API] Error updating user profile:', error);
     throw error;

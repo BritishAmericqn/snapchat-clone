@@ -10,7 +10,7 @@ import {
   Text
 } from 'react-native';
 import { List, Searchbar, Avatar, Button, Divider } from 'react-native-paper';
-import { View, FormErrorMessage } from '../components';
+import { View, FormErrorMessage, UserRecommendationSection } from '../components';
 import { Colors } from '../config';
 import { AuthenticatedUserContext } from '../providers';
 import { searchUsers, checkFriendStatus, sendFriendRequest } from '../api';
@@ -101,6 +101,15 @@ export const SearchUsersScreen = ({ navigation, route }) => {
       // Otherwise navigate to profile
       navigation.navigate('UserProfile', { userId: item.id });
     }
+  };
+
+  const handleRecommendationUserPress = (recommendedUser) => {
+    // Same logic as regular user press
+    const item = {
+      id: recommendedUser.id || recommendedUser.uid,
+      ...recommendedUser
+    };
+    handleUserPress(item);
   };
 
   const renderUserItem = ({ item }) => {
@@ -201,19 +210,24 @@ export const SearchUsersScreen = ({ navigation, route }) => {
     );
   };
 
-  return (
-    <View isSafe style={styles.container}>
-      <Searchbar
-        placeholder="Search users..."
-        onChangeText={setSearchQuery}
-        value={searchQuery}
-        style={styles.searchBar}
-        icon="magnify"
-        clearIcon="close"
-      />
-      
-      {error !== '' && <FormErrorMessage error={error} visible={true} />}
-      
+  const renderContent = () => {
+    // Show recommendations when not searching
+    if (!searchQuery.trim()) {
+      return (
+        <View style={styles.recommendationsContainer}>
+          <UserRecommendationSection
+            navigation={navigation}
+            onUserPress={handleRecommendationUserPress}
+            limit={5}
+            showHeader={true}
+            style={styles.recommendationSection}
+          />
+        </View>
+      );
+    }
+
+    // Show search results when searching
+    return (
       <FlatList
         data={users}
         keyExtractor={(item) => item.id}
@@ -231,6 +245,23 @@ export const SearchUsersScreen = ({ navigation, route }) => {
         }
         contentContainerStyle={users.length === 0 ? styles.emptyList : null}
       />
+    );
+  };
+
+  return (
+    <View isSafe style={styles.container}>
+      <Searchbar
+        placeholder="Search users..."
+        onChangeText={setSearchQuery}
+        value={searchQuery}
+        style={styles.searchBar}
+        icon="magnify"
+        clearIcon="close"
+      />
+      
+      {error !== '' && <FormErrorMessage error={error} visible={true} />}
+      
+      {renderContent()}
     </View>
   );
 };
@@ -244,6 +275,13 @@ const styles = StyleSheet.create({
     margin: 16,
     elevation: 2,
     borderRadius: 8,
+  },
+  recommendationsContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  recommendationSection: {
+    flex: 1,
   },
   avatar: {
     marginRight: 10,

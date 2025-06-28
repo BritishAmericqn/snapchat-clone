@@ -384,8 +384,18 @@ export const ChatRoomScreen = ({ route, navigation }) => {
       hasExistingStarters: conversationStarters.length > 0
     });
     
-    if (!user?.uid || !otherUser?.uid || loadingConversationStarters || conversationStarters.length > 0) {
-      console.log('[ChatRoomScreen] ⏹️ Skipping conversation starters generation');
+    if (!user?.uid || !otherUser?.uid) {
+      console.log('[ChatRoomScreen] ⏹️ Skipping - missing user data');
+      return;
+    }
+    
+    if (conversationStarters.length > 0) {
+      console.log('[ChatRoomScreen] ⏹️ Skipping - already have starters');
+      return;
+    }
+    
+    if (loadingConversationStarters) {
+      console.log('[ChatRoomScreen] ⏹️ Skipping - already loading');
       return;
     }
     
@@ -447,6 +457,8 @@ export const ChatRoomScreen = ({ route, navigation }) => {
       ]);
       setShowConversationStarters(true);
     } finally {
+      // CRITICAL: Always reset loading state, no matter what happens
+      console.log('[ChatRoomScreen] 🔄 Resetting loading state to false');
       setLoadingConversationStarters(false);
     }
   };

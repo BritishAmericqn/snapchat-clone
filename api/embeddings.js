@@ -231,8 +231,10 @@ export const analyzeImageForEmbedding = async (imageUri, metadata = {}) => {
     
     const imageData = await prepareImageForAnalysis(imageUri);
     
+    // 🚀 OPTIMIZATION: Use vision model for image analysis
+    const config = getModelConfig('vision');
     const response = await openai.chat.completions.create({
-      model: RAG_CONFIG.openai.model,
+      model: config.model, // ✅ Uses optimized vision model instead of legacy config
       temperature: 0.3, // Lower temperature for consistent analysis
       max_tokens: 200,
       messages: [
@@ -588,7 +590,9 @@ export const generateTextOverlaySuggestions = async (imageUri, userId, options =
     analyticsStore.textOverlayRequests = (analyticsStore.textOverlayRequests || 0) + 1;
     
     const openai = getOpenAIClient();
-    const config = RAG_CONFIG.openai;
+    
+    // 🚀 OPTIMIZATION: Use vision model for image analysis
+    const config = getModelConfig('vision');
     
     // Prepare image for analysis
     const imageData = await prepareImageForAnalysis(imageUri);
@@ -598,7 +602,7 @@ export const generateTextOverlaySuggestions = async (imageUri, userId, options =
     
     // Call OpenAI Vision API
     const response = await openai.chat.completions.create({
-      model: config.model,
+      model: config.model, // ✅ Uses optimized vision model instead of legacy config
       temperature: 0.8, // Slightly lower for more focused suggestions
       max_tokens: 400, // More tokens for positioning analysis
       messages: [
@@ -976,32 +980,24 @@ export const getAnalyticsSummary = () => {
 };
 
 /**
- * Generate conversation starter suggestions with advanced intelligence
+ * Generate intelligent conversation starters between two users
  * @param {string} currentUserId - Current user ID
  * @param {string} otherUserId - Other user ID
  * @param {Object} options - Generation options
- * @returns {Promise<Object>} - Generated conversation starters with advanced context
+ * @returns {Promise<Object>} - Generated conversation starters
  */
 export const generateConversationStarters = async (currentUserId, otherUserId, options = {}) => {
   const startTime = Date.now();
   
   try {
-    console.log('[Embeddings] 🚀 OPTIMIZED: Generating conversation starters between users:', currentUserId, otherUserId);
+    console.log('[Embeddings] 💬 Generating conversation starters between users:', currentUserId, '→', otherUserId);
     
-    // Check cache first (conversation starters for user pairs can be cached longer)
+    // Check cache first
     const cacheKey = `conversation_${[currentUserId, otherUserId].sort().join('_')}_${options.category || 'mixed'}`;
     const cachedResult = getCachedResponse(cacheKey);
     if (cachedResult) {
-      performanceStats.cacheHits++;
-      console.log('[Embeddings] ⚡ Cache hit! Returning cached conversation starters in ~10ms');
-      return {
-        ...cachedResult,
-        metadata: {
-          ...cachedResult.metadata,
-          fromCache: true,
-          responseTime: Date.now() - startTime
-        }
-      };
+      console.log('[Embeddings] ⚡ Cache hit! Returning cached conversation starters');
+      return cachedResult;
     }
     
     // Rate limiting check
@@ -1011,56 +1007,38 @@ export const generateConversationStarters = async (currentUserId, otherUserId, o
     
     // Get user profiles for context
     const { getUserProfile } = require('./users');
-    const currentUser = await getUserProfile(currentUserId);
-    const otherUser = await getUserProfile(otherUserId);
+    const [currentUser, otherUser] = await Promise.all([
+      getUserProfile(currentUserId),
+      getUserProfile(otherUserId)
+    ]);
     
     if (!currentUser || !otherUser) {
       throw new Error('User profiles not found');
     }
     
     // Validate friendship
-    const { areUsersFriends } = require('./friends');
+    const { areUsersFriends } = require('./messages');
     const areFriends = await areUsersFriends(currentUserId, otherUserId);
     if (!areFriends) {
       console.log('[Embeddings] ⚠️ Users are not friends, skipping conversation suggestions');
       throw new Error('Users must be friends to generate conversation starters');
     }
     
-    // 🚀 OPTIMIZATION: Use fast model (GPT-3.5) for conversation generation
-    const config = getModelConfig('conversation');
-    console.log('[Embeddings] 📊 Using optimized model:', config.model, 'for conversation starters');
+    // Analyze shared context (simplified)
+    const sharedContext = await analyzeSharedContext(currentUser, otherUser);
     
+    // Create focused conversation prompt
+    const prompt = createConversationStarterPrompt(currentUser, otherUser, sharedContext, options);
+    
+    const config = getModelConfig('conversation');
     const openai = getOpenAIClient();
     
-    // Enhanced context analysis
-    const enhancedContext = await analyzeEnhancedContext(currentUserId, otherUserId);
-    const activityTopics = await generateActivityBasedTopics(currentUserId, otherUserId, options);
-    
-    // Create enhanced conversation prompt
-    const prompt = createEnhancedConversationPrompt(
-      currentUser, 
-      otherUser, 
-      enhancedContext, 
-      options
-    );
-    
-    // 🚀 OPTIMIZATION: No image analysis needed - pure text generation with fast model
     const response = await openai.chat.completions.create({
-      model: config.model,              // 🚀 GPT-3.5 is 10x faster for text-only tasks
-      temperature: config.temperature,  // Optimized for conversation
-      max_tokens: config.maxTokens,     // Fewer tokens needed
-      messages: [
-        {
-          role: "user",
-          content: prompt
-        }
-      ]
+      model: config.model,
+      temperature: 0.8,
+      max_tokens: 300,
+      messages: [{ role: "user", content: prompt }]
     });
-    
-    // Track performance stats
-    performanceStats.fastModelCalls++;
-    const responseTime = Date.now() - startTime;
-    console.log(`[Embeddings] ⚡ Fast model response time: ${responseTime}ms`);
     
     // Parse response with markdown code block handling
     let responseContent = response.choices[0].message.content;
@@ -1083,10 +1061,10 @@ export const generateConversationStarters = async (currentUserId, otherUserId, o
       success: true,
       suggestions: result.suggestions || [],
       context: {
-        connectionStrength: enhancedContext?.connectionStrength || 'developing',
-        sharedTopics: enhancedContext?.sharedInterests || [],
-        contextAnalysis: result.contextAnalysis || 'General conversation starters',
-        activityTopics: activityTopics.topics || []
+        connectionStrength: sharedContext.connectionType || 'moderate',
+        contextAnalysis: result.contextSummary || 'Generated based on user profiles and shared connections',
+        sharedInterests: sharedContext.sharedInterests || [],
+        mutualFriends: sharedContext.mutualFriends || []
       },
       metadata: {
         model: config.model,
@@ -1094,23 +1072,20 @@ export const generateConversationStarters = async (currentUserId, otherUserId, o
         otherUserId, 
         timestamp: new Date().toISOString(),
         usage: response.usage,
-        fromCache: false,
-        responseTime: responseTime
+        responseTime: Date.now() - startTime
       }
     };
     
-    // 🚀 OPTIMIZATION: Cache conversation starters for 10 minutes (longer than captions)
+    // Cache for 10 minutes
     setCachedResponse(cacheKey, finalResult);
-    console.log('[Embeddings] 💾 Cached conversation starters for future requests');
-    
-    console.log('[Embeddings] Conversation starters generated successfully:', finalResult.suggestions.length);
+    console.log('[Embeddings] ✅ Conversation starters generated successfully:', finalResult.suggestions.length);
     
     return finalResult;
     
   } catch (error) {
     console.error('[Embeddings] Error generating conversation starters:', error);
     
-    // Return fallback starters with basic intelligence
+    // Return fallback starters
     const fallbackStarters = getFallbackConversationStarters(options.category);
     const fallbackSuggestions = fallbackStarters.map((text, index) => ({
       id: `fallback_${Date.now()}_${index}`,
@@ -1149,126 +1124,57 @@ export const generateConversationStarters = async (currentUserId, otherUserId, o
 };
 
 /**
- * Create enhanced conversation prompt using all intelligence features
+ * Create focused conversation starter prompt using basic user information
  * @param {Object} currentUser - Current user profile
  * @param {Object} otherUser - Other user profile  
- * @param {Object} intelligenceContext - Combined intelligence context
+ * @param {Object} sharedContext - Shared context analysis
  * @param {Object} options - Generation options
- * @returns {string} - Enhanced prompt for OpenAI
+ * @returns {string} - Focused prompt for OpenAI
  */
-const createEnhancedConversationPrompt = (currentUser, otherUser, intelligenceContext, options = {}) => {
-  const basePrompt = `Generate 3 conversation starters using advanced conversation intelligence analysis:
+const createConversationStarterPrompt = (currentUser, otherUser, sharedContext, options = {}) => {
+  const mutualFriendsText = sharedContext.mutualFriends?.length > 0 
+    ? `Mutual friends: ${sharedContext.mutualFriends.slice(0, 3).join(', ')}`
+    : 'No mutual friends known';
+    
+  const sharedInterestsText = sharedContext.sharedInterests?.length > 0
+    ? `Shared interests: ${sharedContext.sharedInterests.join(', ')}`
+    : 'No obvious shared interests';
 
-CONVERSATION HISTORY ANALYSIS:
-- Stage: ${intelligenceContext.conversationHistory?.conversationStage || 'new'}
-- Tone: ${intelligenceContext.conversationHistory?.toneProgression || 'neutral'}
-- Health: ${intelligenceContext.conversationHistory?.conversationHealth || 'unknown'}
-- Recommended Approach: ${intelligenceContext.conversationHistory?.recommendedApproach || 'friendly'}
-- Days Since Last Contact: ${intelligenceContext.conversationHistory?.lastInteractionDays || 'N/A'}
+  return `Generate 3 conversation starters for a direct message between friends.
 
-ENHANCED CONTEXT (Friend Activities):
-- Shared Activities: ${JSON.stringify(intelligenceContext.enhancedContext?.sharedActivities || [])}
-- Recent Interests: ${JSON.stringify(intelligenceContext.enhancedContext?.recentInterests || [])}
-- Connection Strength: ${intelligenceContext.enhancedContext?.connectionStrength || 'moderate'}
+CONTEXT:
+- Person initiating: ${currentUser.displayName || currentUser.username} (${currentUser.bio || 'No bio available'})
+- Person receiving: ${otherUser.displayName || otherUser.username} (${otherUser.bio || 'No bio available'})
+- ${mutualFriendsText}
+- ${sharedInterestsText}
+- Connection type: ${sharedContext.connectionType || 'friends'}
 
-TIMING INTELLIGENCE:
-- Current Timing Assessment: ${intelligenceContext.timingInsights || 'No specific timing data'}
-- Recommended Contact Windows: Based on interaction patterns analysis
-
-ACTIVITY-BASED TOPICS:
-- Recent Activity Topics: ${JSON.stringify(intelligenceContext.activityTopics || [])}
-
-SHARED CONTEXT:
-- Shared Interests: ${JSON.stringify(intelligenceContext.sharedInterests || [])}
-- Mutual Friends: ${intelligenceContext.mutualFriends?.length || 0} mutual connections
-- Bio Interests: ${JSON.stringify(intelligenceContext.bioInterests || [])}
-
-USER PROFILES:
-- Current User: ${currentUser?.displayName || 'User'} (${currentUser?.bio || 'No bio'})
-- Other User: ${otherUser?.displayName || 'User'} (${otherUser?.bio || 'No bio'})
-
-INSTRUCTIONS:
-Create conversation starters that:
-1. Match the recommended approach based on conversation history
-2. Reference shared activities or interests when available
-3. Consider the conversation stage and relationship strength
-4. Use activity-based topics when relevant
-5. Feel natural and engaging for the specific relationship context
+REQUIREMENTS:
+Generate conversation starters that are:
+1. Natural and authentic (how real friends actually talk)
+2. Relevant to the context above when possible
+3. Engaging and likely to get a response
+4. Appropriate for the friendship stage
+5. Not too formal or awkward
 
 For each starter, provide:
-- text: The conversation starter message
-- reasoning: Why this works based on the intelligence analysis
-- category: Type (conversation_history, shared_activity, mutual_interest, timing_based)
-- confidence: How confident we are this will work (high/medium/low)
+- text: The actual conversation starter message
+- reasoning: Brief explanation of why this would work
+- category: Type (mutual_friends, shared_interests, bio_based, general_friendly)
+- confidence: Your confidence this will work (high, medium, low)
 
-Respond with JSON format:
+Respond with JSON:
 {
   "suggestions": [
     {
-      "text": "conversation starter text",
-      "reasoning": "why this works based on intelligence",
-      "category": "conversation_history|shared_activity|mutual_interest|timing_based",
-      "confidence": "high|medium|low"
+      "text": "Hey! How's it going?",
+      "reasoning": "Simple, friendly opener",
+      "category": "general_friendly", 
+      "confidence": "medium"
     }
   ],
-  "contextSummary": "Brief summary of the intelligence used"
+  "contextSummary": "Brief summary of the approach used"
 }`;
-
-  return basePrompt;
-};
-
-/**
- * Create context analysis for UI display
- * @param {Object} conversationHistory - Conversation history analysis
- * @param {Object} enhancedContext - Enhanced context analysis
- * @param {Object} timingIntelligence - Timing intelligence analysis
- * @param {Object} activityTopics - Activity-based topics
- * @param {Object} sharedContext - Shared context analysis
- * @returns {string} - Context analysis for UI
- */
-const createContextAnalysisForUI = (conversationHistory, enhancedContext, timingIntelligence, activityTopics, sharedContext) => {
-  const contextParts = [];
-  
-  // Add conversation history insights
-  if (conversationHistory.success && conversationHistory.analysis) {
-    const analysis = conversationHistory.analysis;
-    if (analysis.conversationStage === 'new') {
-      contextParts.push('Starting fresh conversation');
-    } else if (analysis.conversationStage === 'dormant') {
-      contextParts.push(`Reconnecting after ${analysis.lastInteractionDays} days`);
-    } else if (analysis.conversationStage === 'active') {
-      contextParts.push(`Active conversation (${analysis.toneProgression} tone)`);
-    }
-  }
-  
-  // Add enhanced context insights
-  if (enhancedContext.success && enhancedContext.context) {
-    if (enhancedContext.context.sharedActivities?.length > 0) {
-      contextParts.push(`${enhancedContext.context.sharedActivities.length} shared activities detected`);
-    }
-    if (enhancedContext.insights?.connectionStrength) {
-      contextParts.push(`${enhancedContext.insights.connectionStrength} connection strength`);
-    }
-  }
-  
-  // Add timing insights
-  if (timingIntelligence.success && timingIntelligence.insights) {
-    contextParts.push(`Timing: ${timingIntelligence.insights}`);
-  }
-  
-  // Add activity-based insights
-  if (activityTopics.success && activityTopics.topics?.length > 0) {
-    contextParts.push(`${activityTopics.topics.length} activity-based topics available`);
-  }
-  
-  // Add shared context
-  if (sharedContext.sharedInterests?.length > 0) {
-    contextParts.push(`Shared interests: ${sharedContext.sharedInterests.slice(0, 2).join(', ')}`);
-  }
-  
-  return contextParts.length > 0 
-    ? `AI Analysis: ${contextParts.join(' • ')}`
-    : 'AI is analyzing your conversation context...';
 };
 
 /**
@@ -1456,11 +1362,12 @@ export const analyzeEnhancedContext = async (currentUserId, otherUserId) => {
     console.log('[Embeddings] 🔍 Analyzing enhanced context for users:', currentUserId, '→', otherUserId);
     
     // Import necessary APIs
-    const { getUserProfile, getUsersByIds } = await import('./users');
-    const { getFeedPosts } = await import('./posts');
-    const { areUsersFriends } = await import('./messages');
+    const { getUserProfile, getUsersByIds } = require('./users');
+    const { getFeedPosts } = require('./posts');
+    const { areUsersFriends } = require('./messages');
     
     // Verify users are friends before accessing activity data
+    console.log('[Embeddings] 🔍 Enhanced context - areUsersFriends function type:', typeof areUsersFriends);
     const areFriends = await areUsersFriends(currentUserId, otherUserId);
     if (!areFriends) {
       return {
@@ -1534,34 +1441,80 @@ export const generateActivityBasedTopics = async (currentUserId, otherUserId, op
   try {
     console.log('[Embeddings] 🎯 Generating activity-based topics for users:', currentUserId, '→', otherUserId);
     
-    // Get enhanced context and recent activities
-    const enhancedContext = await analyzeEnhancedContext(currentUserId, otherUserId);
+    // Get user profiles for basic context
+    const { getUserProfile } = require('./users');
+    const [currentUser, otherUser] = await Promise.all([
+      getUserProfile(currentUserId),
+      getUserProfile(otherUserId)
+    ]);
     
-    if (!enhancedContext.success) {
-      return {
-        success: false,
-        error: enhancedContext.error,
-        topics: []
-      };
+    if (!currentUser || !otherUser) {
+      throw new Error('User profiles not found');
     }
     
-    // Generate AI-powered topic suggestions based on activities
-    const activityTopics = await generateAITopicsFromActivities(
-      enhancedContext.context,
-      currentUserId,
-      otherUserId,
-      options
-    );
+    // Create simplified activity-based prompt
+    const prompt = `Generate 2-3 conversation topics based on general activities and interests.
+
+CONTEXT:
+- Person 1: ${currentUser.displayName || currentUser.username} (${currentUser.bio || 'No bio'})
+- Person 2: ${otherUser.displayName || otherUser.username} (${otherUser.bio || 'No bio'})
+
+Generate conversation topics that:
+1. Reference common activities people do (work, hobbies, weekend plans)
+2. Are open-ended and encourage sharing
+3. Feel natural and not forced
+4. Work for friends catching up
+
+For each topic, provide:
+- topic: The conversation starter
+- reasoning: Why this would work
+- category: Type (activity_based, current_events, personal_interests)
+
+Respond with JSON:
+{
+  "suggestions": [
+    {
+      "topic": "What have you been up to lately?",
+      "reasoning": "Open-ended question about recent activities",
+      "category": "activity_based"
+    }
+  ],
+  "insights": "Brief note about the approach"
+}`;
+
+    const config = getModelConfig('conversation');
+    const openai = getOpenAIClient();
+    
+    const response = await openai.chat.completions.create({
+      model: config.model,
+      temperature: 0.8,
+      max_tokens: 250,
+      messages: [{ role: "user", content: prompt }]
+    });
+    
+    // Parse response with markdown code block handling
+    let responseContent = response.choices[0].message.content;
+    
+    // Remove markdown code blocks if present
+    if (responseContent.includes('```json')) {
+      responseContent = responseContent.replace(/```json\n?/g, '').replace(/\n?```/g, '');
+    } else if (responseContent.includes('```')) {
+      responseContent = responseContent.replace(/```\n?/g, '').replace(/\n?```/g, '');
+    }
+    
+    responseContent = responseContent.trim();
+    
+    console.log('[Embeddings] Raw OpenAI response for activity topics:', responseContent);
+    
+    const result = JSON.parse(responseContent);
     
     return {
       success: true,
-      topics: activityTopics.suggestions,
-      context: enhancedContext.context,
-      insights: activityTopics.insights,
+      topics: result.suggestions || [],
+      insights: result.insights || 'Activity-based conversation topics generated',
       metadata: {
-        topicsGenerated: activityTopics.suggestions.length,
-        basedOnActivities: enhancedContext.context.sharedActivities.length,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        model: config.model
       }
     };
     
@@ -1570,7 +1523,8 @@ export const generateActivityBasedTopics = async (currentUserId, otherUserId, op
     return {
       success: false,
       error: error.message,
-      topics: getFallbackActivityTopics()
+      topics: getFallbackActivityTopics(),
+      insights: 'Using fallback topics due to analysis limitations'
     };
   }
 };
@@ -2060,14 +2014,18 @@ Respond with JSON format:
   "insights": "brief insight about conversation opportunities"
 }`;
 
+    // 🧪 EXPERIMENT: Use same pattern as working story discovery
+    const config = getModelConfig('conversation');
     const response = await openai.chat.completions.create({
-      model: RAG_CONFIG.openai.model,
+      model: config.model, // Same model as story discovery
       temperature: 0.8,
       max_tokens: 300,
-      messages: [{ role: "user", content: prompt }]
+      messages: [{ role: "user", content: prompt }],
+// 🧪 EXPERIMENT: Remove structured outputs to test project API key compatibility
+      // response_format removed - back to regular JSON parsing
     });
     
-    // Extract JSON from response, handling markdown code blocks
+    // 🧪 EXPERIMENT: Restore regular JSON parsing with code block handling
     let responseContent = response.choices[0].message.content;
     
     // Remove markdown code blocks if present
@@ -2080,7 +2038,7 @@ Respond with JSON format:
     // Clean up any leading/trailing whitespace
     responseContent = responseContent.trim();
     
-    console.log('[Embeddings] Raw OpenAI response:', responseContent);
+    console.log('[Embeddings] 🧪 Regular JSON response for activity topics:', responseContent);
     
     const result = JSON.parse(responseContent);
     return result;
@@ -2304,7 +2262,7 @@ export const analyzeConversationHistory = async (chatId, currentUserId, otherUse
       if (recentMessages.length > 10) {
         const openai = getOpenAIClient();
         const toneResponse = await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
+          model: 'gpt-3.5-turbo', // ✅ Base model compatible with project API keys
           temperature: 0.3,
           max_tokens: 50,
           messages: [{
@@ -2820,8 +2778,10 @@ For each recommendation, provide:
 
 Respond with valid JSON:`;
     
+    // 🚀 OPTIMIZATION: Use fast model for text-only recommendations
+    const config = getModelConfig('recommendations');
     const response = await openai.chat.completions.create({
-      model: RAG_CONFIG.openai.model,
+      model: config.model, // ✅ Uses optimized gpt-3.5-turbo instead of legacy config
       temperature: 0.8,
       max_tokens: 500,
       messages: [
@@ -2948,8 +2908,10 @@ Based on this data, determine:
 
 Respond with valid JSON:`;
     
+    // 🚀 OPTIMIZATION: Use fast model for preferences analysis
+    const config = getModelConfig('analytics');
     const response = await openai.chat.completions.create({
-      model: RAG_CONFIG.openai.model,
+      model: config.model, // ✅ Uses optimized gpt-3.5-turbo instead of legacy config
       temperature: 0.7,
       max_tokens: 350,
       messages: [
@@ -3062,8 +3024,10 @@ For each recommendation, provide:
 
 Respond with valid JSON:`;
     
+    // 🚀 OPTIMIZATION: Use fast model for story discovery
+    const config = getModelConfig('discovery');  
     const response = await openai.chat.completions.create({
-      model: RAG_CONFIG.openai.model,
+      model: config.model, // ✅ Uses optimized gpt-3.5-turbo instead of legacy config
       temperature: 0.8,
       max_tokens: 600,
       messages: [

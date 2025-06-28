@@ -34,7 +34,7 @@ export const RAG_CONFIG = {
   models: {
     // FAST: For simple text generation (conversation starters, recommendations)
     fast: {
-      model: 'gpt-3.5-turbo-0125', // 10x faster, 90% cheaper than GPT-4
+      model: 'gpt-3.5-turbo', // ✅ Base model - works with all API key types
       temperature: 0.7,
       maxTokens: 150,
       useCase: ['conversation', 'recommendations', 'simple_analysis']
@@ -42,7 +42,7 @@ export const RAG_CONFIG = {
     
     // VISION: For image analysis only (captions, text overlays)  
     vision: {
-      model: 'gpt-4o-mini', // Much faster than full GPT-4, still good vision
+      model: 'gpt-4o-mini', // ✅ Updated from deprecated gpt-4-vision-preview
       temperature: 0.8,
       maxTokens: 400, // ⬆️ INCREASED: Prevent JSON truncation for filter recommendations
       imageDetail: 'low', // 2-3x faster than 'high' detail
@@ -51,7 +51,7 @@ export const RAG_CONFIG = {
     
     // HEAVY: For complex analysis only (user matching algorithms)
     heavy: {
-      model: 'gpt-4o-2024-08-06', // Only for truly complex tasks
+      model: 'gpt-4', // ✅ Base GPT-4 model - more compatible than specific versions
       temperature: 0.9,
       maxTokens: 300,
       imageDetail: 'high',
@@ -59,9 +59,9 @@ export const RAG_CONFIG = {
     }
   },
   
-  // Legacy single model config (remove after migration)
+  // Legacy single model config - UPDATED to use compatible model
   openai: {
-    model: 'gpt-4o-2024-08-06',
+    model: 'gpt-3.5-turbo', // ✅ Changed from gpt-4o-2024-08-06 to base model
     temperature: 0.9,
     maxTokens: 300,
     imageDetail: 'high',

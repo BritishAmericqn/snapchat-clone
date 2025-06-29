@@ -613,4 +613,55 @@ const calculateCostSavings = () => {
     estimatedSavings: `$${savings.toFixed(4)}`,
     savingsPercent: `${savingsPercent}%`
   };
+};
+
+// ===========================
+// BACKEND INTEGRATION CONFIG
+// ===========================
+
+export const BACKEND_CONFIG = {
+  // Enable backend RAG integration when available
+  useBackend: true, // ✅ CHANGED TO TRUE - Backend is now running!
+  
+  // Backend URL configuration
+  backendUrl: __DEV__ 
+    ? 'http://localhost:3000' // ✅ This matches your running backend
+    : 'https://your-production-backend.com',
+  
+  // Fallback behavior
+  fallbackToClient: true, // Use client-side RAG if backend fails
+  
+  // Request configuration
+  requestTimeout: 10000, // 10 seconds
+  retryAttempts: 2,
+  
+  // Feature flags
+  features: {
+    vectorSearch: true,
+    contentIndexing: true,
+    batchProcessing: true,
+    hybridSearch: true,
+  }
+};
+
+// Helper to check if backend is available
+export const isBackendAvailable = async () => {
+  if (!BACKEND_CONFIG.useBackend) return false;
+  
+  try {
+    const response = await fetch(`${BACKEND_CONFIG.backendUrl}/health`, {
+      method: 'GET',
+      timeout: 2000,
+    });
+    return response.ok;
+  } catch (error) {
+    console.log('[RAG] Backend not available:', error.message);
+    return false;
+  }
+};
+
+// Export the complete configuration
+export default {
+  ...RAG_CONFIG,
+  backend: BACKEND_CONFIG,
 }; 

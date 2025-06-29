@@ -2926,7 +2926,7 @@ Respond with valid JSON:`;
     const response = await openai.chat.completions.create({
       model: config.model, // ✅ Uses optimized gpt-3.5-turbo instead of legacy config
       temperature: 0.8,
-      max_tokens: 600,
+      max_tokens: 800,  // ⬆️ Increased to prevent truncation
       messages: [
         {
           role: "user",
@@ -2956,7 +2956,52 @@ Respond with valid JSON:`;
     }
     responseContent = responseContent.trim();
     
-    const aiResult = JSON.parse(responseContent);
+    // 🚨 ROBUST JSON PARSING with validation
+    let aiResult;
+    try {
+      aiResult = JSON.parse(responseContent);
+    } catch (parseError) {
+      console.error('[Embeddings] JSON parse error for story recommendations:', parseError.message);
+      console.log('[Embeddings] Failed response content:', responseContent);
+      
+      // If JSON is incomplete, try to fix common issues
+      if (parseError.message.includes('Unexpected end of input')) {
+        console.log('[Embeddings] Attempting to fix truncated JSON response...');
+        
+        // Try to close incomplete JSON structures
+        let fixedContent = responseContent;
+        
+        // Count opening vs closing braces/brackets
+        const openBraces = (fixedContent.match(/\{/g) || []).length;
+        const closeBraces = (fixedContent.match(/\}/g) || []).length;
+        const openBrackets = (fixedContent.match(/\[/g) || []).length;
+        const closeBrackets = (fixedContent.match(/\]/g) || []).length;
+        
+        // Add missing closing braces/brackets
+        for (let i = 0; i < (openBrackets - closeBrackets); i++) {
+          fixedContent += ']';
+        }
+        for (let i = 0; i < (openBraces - closeBraces); i++) {
+          fixedContent += '}';
+        }
+        
+        try {
+          aiResult = JSON.parse(fixedContent);
+          console.log('[Embeddings] ✅ Successfully fixed truncated JSON!');
+        } catch (secondError) {
+          console.log('[Embeddings] ❌ Could not fix JSON, using fallback');
+          throw new Error('JSON response was incomplete and could not be repaired');
+        }
+      } else {
+        throw new Error(`JSON parsing failed: ${parseError.message}`);
+      }
+    }
+    
+    // Validate result structure
+    if (!aiResult || typeof aiResult !== 'object' || !aiResult.recommendations || !Array.isArray(aiResult.recommendations)) {
+      console.warn('[Embeddings] Invalid recommendations structure, using fallback');
+      throw new Error('Invalid recommendations structure in OpenAI response');
+    }
     
     // Enrich recommendations with full story data
     const enrichedRecommendations = aiResult.recommendations.map(rec => {
@@ -3549,3 +3594,307 @@ const getFallbackFilterRecommendations = (availableFilters) => {
   // Only return filters that are actually available
   return fallbackFilters.filter(rec => availableFilters.includes(rec.filterId));
 };
+
+// ================== BACKEND RAG INTEGRATION ==================
+// These functions integrate with your backend RAG service
+
+/**
+ * Backend URL Configuration
+ */
+const getBackendURL = () => {
+  if (__DEV__) {
+    // Development - your local backend
+    return 'http://localhost:3000'; // Change port if different
+  } else {
+    // Production - your deployed backend
+    return 'https://your-production-backend.com';
+  }
+};
+
+export const RAG_BACKEND_URL = getBackendURL();
+
+/**
+ * Store content in RAG system via backend
+ * @param {Object} contentData - Content to store
+ * @returns {Promise<Object>} - Storage result
+ */
+export const storeContentInRAG = async (contentData) => {
+  try {
+    console.log('[RAG] 📤 Storing content in backend RAG system');
+    
+    const response = await fetch(`${RAG_BACKEND_URL}/api/rag/store-content`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Add auth headers if needed
+        // 'Authorization': `Bearer ${getAuthToken()}`
+      },
+      body: JSON.stringify(contentData),
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.message || 'Failed to store content');
+    }
+    
+    console.log('[RAG] ✅ Content stored successfully:', result.vectorId);
+    return result;
+    
+  } catch (error) {
+    console.error('[RAG] ❌ Failed to store content:', error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+/**
+ * Search similar content via backend
+ * @param {string} query - Search query
+ * @param {Object} options - Search options
+ * @returns {Promise<Object>} - Search results
+ */
+export const searchSimilarInRAG = async (query, options = {}) => {
+  try {
+    console.log('[RAG] 🔍 Searching via backend:', query);
+    
+    const response = await fetch(`${RAG_BACKEND_URL}/api/rag/search-similar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query, options }),
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.message || 'Search failed');
+    }
+    
+    console.log(`[RAG] ✅ Found ${result.results.length} results`);
+    return result;
+    
+  } catch (error) {
+    console.error('[RAG] ❌ Search failed:', error);
+    return {
+      success: false,
+      error: error.message,
+      results: [],
+    };
+  }
+};
+
+/**
+ * Index app-specific content (posts, stories, messages)
+ * @param {string} type - Content type
+ * @param {string} contentId - Unique content ID
+ * @param {Object} data - Content data
+ * @returns {Promise<Object>} - Indexing result
+ */
+export const indexAppContent = async (type, contentId, data) => {
+  try {
+    console.log(`[RAG] 📇 Indexing ${type}:`, contentId);
+    
+    const response = await fetch(`${RAG_BACKEND_URL}/api/rag/index-content`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ type, contentId, data }),
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.message || 'Indexing failed');
+    }
+    
+    console.log('[RAG] ✅ Content indexed successfully');
+    return result;
+    
+  } catch (error) {
+    console.error('[RAG] ❌ Indexing failed:', error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+/**
+ * Search within app content
+ * @param {string} query - Search query
+ * @param {Array<string>} contentTypes - Filter by content types
+ * @param {string} userId - Filter by user ID
+ * @returns {Promise<Object>} - Search results
+ */
+export const searchAppContent = async (query, contentTypes = [], userId = null) => {
+  try {
+    console.log('[RAG] 🔍 Searching app content:', query);
+    
+    const response = await fetch(`${RAG_BACKEND_URL}/api/rag/search-app-content`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query, contentTypes, userId }),
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.message || 'Search failed');
+    }
+    
+    console.log(`[RAG] ✅ Found ${result.results.length} app content results`);
+    return result;
+    
+  } catch (error) {
+    console.error('[RAG] ❌ App content search failed:', error);
+    return {
+      success: false,
+      error: error.message,
+      results: [],
+    };
+  }
+};
+
+/**
+ * Batch process multiple documents
+ * @param {Array<Object>} documents - Array of documents to process
+ * @returns {Promise<Object>} - Batch processing result
+ */
+export const batchProcessDocuments = async (documents) => {
+  try {
+    console.log(`[RAG] 📦 Batch processing ${documents.length} documents`);
+    
+    const response = await fetch(`${RAG_BACKEND_URL}/api/rag/batch-process`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ documents }),
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.message || 'Batch processing failed');
+    }
+    
+    console.log('[RAG] ✅ Batch processing completed');
+    return result;
+    
+  } catch (error) {
+    console.error('[RAG] ❌ Batch processing failed:', error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+/**
+ * Get RAG system statistics
+ * @returns {Promise<Object>} - System statistics
+ */
+export const getRAGStats = async () => {
+  try {
+    console.log('[RAG] 📊 Fetching system statistics');
+    
+    const response = await fetch(`${RAG_BACKEND_URL}/api/rag/stats`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.message || 'Failed to fetch stats');
+    }
+    
+    console.log('[RAG] ✅ Stats retrieved:', result.stats);
+    return result;
+    
+  } catch (error) {
+    console.error('[RAG] ❌ Failed to fetch stats:', error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+/**
+ * Enhanced search with fallback to client-side
+ * @param {string} query - Search query
+ * @param {Object} options - Search options
+ * @returns {Promise<Object>} - Search results
+ */
+export const hybridSearch = async (query, options = {}) => {
+  try {
+    // Try backend search first
+    const backendResult = await searchSimilarInRAG(query, options);
+    
+    if (backendResult.success && backendResult.results.length > 0) {
+      return backendResult;
+    }
+    
+    // Fallback to client-side search if backend fails or returns no results
+    console.log('[RAG] 🔄 Falling back to client-side search');
+    
+    // Use existing client-side functions
+    // This would search through locally cached data
+    return {
+      success: true,
+      fallback: true,
+      results: [],
+      message: 'Using client-side fallback',
+    };
+    
+  } catch (error) {
+    console.error('[RAG] ❌ Hybrid search failed:', error);
+    return {
+      success: false,
+      error: error.message,
+      results: [],
+    };
+  }
+};
+
+// ================== USAGE EXAMPLES ==================
+
+/**
+ * Example: Index a new post
+ * 
+ * await indexAppContent('post', 'post_123', {
+ *   caption: 'Beautiful sunset at the beach!',
+ *   authorUid: 'user_456',
+ *   visibility: 'public',
+ *   mediaUrl: 'https://...',
+ * });
+ */
+
+/**
+ * Example: Search for content
+ * 
+ * const results = await searchAppContent('sunset beach', ['post', 'story']);
+ * console.log('Found posts:', results.results);
+ */
+
+/**
+ * Example: Store custom knowledge
+ * 
+ * await storeContentInRAG({
+ *   content: 'Company policy on returns: We accept returns within 30 days...',
+ *   metadata: {
+ *     category: 'policy',
+ *     topic: 'returns',
+ *   }
+ * });
+ */

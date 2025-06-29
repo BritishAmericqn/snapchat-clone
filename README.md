@@ -60,6 +60,13 @@
 - **Production Ready** for immediate Firebase migration
 - **Image Composition** using react-native-view-shot for professional editing
 
+### **RAG Backend (Optional)**
+- **Vector Database**: Pinecone for semantic search and content similarity
+- **Embeddings**: OpenAI text-embedding-3-large (3072 dimensions)
+- **Caching Layer**: Redis for performance optimization
+- **RESTful API**: Express.js server with 8 specialized endpoints
+- **Smart Features**: Content deduplication, batch processing, hybrid search
+
 ### **Development Environment**
 - **Hybrid Development**: Expo Go for rapid iteration + development builds for native features
 - **Cross-Platform**: Single codebase for iOS and Android
@@ -102,6 +109,27 @@ OPENAI_API_KEY=your_openai_api_key_here
 ```bash
 npx expo start
 ```
+
+### Optional: RAG Backend Setup
+
+For advanced AI features with vector search and content similarity:
+
+1. **Backend Setup Required**
+   - Separate Node.js backend server
+   - Redis for caching
+   - Pinecone for vector storage
+   - See [BACKEND_SETUP_FOR_GRADERS.md](./BACKEND_SETUP_FOR_GRADERS.md) for detailed instructions
+
+2. **Quick Start** (if backend files provided)
+   ```bash
+   cd ../backend
+   npm install
+   npm run dev
+   ```
+
+3. **Enable in App**
+   - Set `useBackend: true` in `config/rag.js`
+   - Backend provides enhanced AI features and content indexing
 
 ### Development Options
 

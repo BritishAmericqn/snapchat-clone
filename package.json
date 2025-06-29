@@ -12,10 +12,12 @@
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
     "@expo/vector-icons": "^14.1.0",
+    "@pinecone-database/pinecone": "^6.1.1",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-masked-view/masked-view": "0.3.2",
     "@react-navigation/native": "^6.1.16",
     "@react-navigation/stack": "^6.3.28",
+    "cors": "^2.8.5",
     "dotenv": "^10.0.0",
     "expo": "53.0.13",
     "expo-av": "^15.1.6",
@@ -30,10 +32,13 @@
     "expo-image-manipulator": "~13.1.7",
     "expo-image-picker": "~16.1.4",
     "expo-linear-gradient": "~14.1.5",
+    "express": "^5.1.0",
+    "express-validator": "^7.2.1",
     "firebase": "^10.7.2",
     "formik": "2.1.4",
+    "ioredis": "^5.6.1",
     "nativewind": "^4.1.23",
-    "openai": "^4.67.3",
+    "openai": "^4.104.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.4",
@@ -60,9 +65,23 @@
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-native": "^5.0.0",
+    "nodemon": "^3.1.10",
     "prettier": "^3.6.0"
   },
   "private": true,
   "name": "2nd-degree",
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "description": "*A sophisticated social media platform powered by AI intelligence*",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BritishAmericqn/snapchat-clone.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/BritishAmericqn/snapchat-clone/issues"
+  },
+  "homepage": "https://github.com/BritishAmericqn/snapchat-clone#readme"
 }

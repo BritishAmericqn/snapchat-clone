@@ -212,7 +212,7 @@ const mockFirestoreData = {
     'post_sarah_1': {
       postId: 'post_sarah_1',
       authorUid: 'user_sarah',
-      mediaUrl: 'https://picsum.photos/400/600?random=sarah1',
+      mediaUrl: 'https://picsum.photos/id/1016/400/600', // Beach sunset (more accurate)
       mediaType: 'image',
       caption: 'Beautiful sunset at the beach! 🌅',
       visibility: 'friends',
@@ -226,7 +226,7 @@ const mockFirestoreData = {
     'post_mike_1': {
       postId: 'post_mike_1',
       authorUid: 'user_mike',
-      mediaUrl: 'https://picsum.photos/400/600?random=mike1',
+      mediaUrl: 'https://picsum.photos/id/1036/400/600', // Mountain hiking scene
       mediaType: 'image',
       caption: 'Check out this view! This snap will disappear after you see it 👻',
       visibility: 'friends',
@@ -240,7 +240,7 @@ const mockFirestoreData = {
     'post_emma_1': {
       postId: 'post_emma_1',
       authorUid: 'user_emma',
-      mediaUrl: 'https://picsum.photos/400/600?random=emma1',
+      mediaUrl: 'https://picsum.photos/id/894/400/600', // Better coffee scene
       mediaType: 'image',
       caption: 'Coffee time ☕',
       visibility: 'friendsOfFriends',
@@ -254,7 +254,7 @@ const mockFirestoreData = {
     'post_john_1': {
       postId: 'post_john_1',
       authorUid: 'user_john',
-      mediaUrl: 'https://picsum.photos/400/600?random=john1',
+      mediaUrl: 'https://picsum.photos/id/935/400/600', // Better social/party scene
       mediaType: 'image',
       caption: 'Weekend vibes 🎉',
       visibility: 'public',
@@ -268,7 +268,7 @@ const mockFirestoreData = {
     'post_alex_1': {
       postId: 'post_alex_1',
       authorUid: 'user_alex',
-      mediaUrl: 'https://picsum.photos/400/600?random=alex1',
+      mediaUrl: 'https://picsum.photos/id/1024/400/600', // Mountain/hiking
       mediaType: 'image',
       caption: 'Hiking adventures 🏔️',
       visibility: 'friends',
@@ -282,7 +282,7 @@ const mockFirestoreData = {
     'post_lisa_1': {
       postId: 'post_lisa_1',
       authorUid: 'user_lisa',
-      mediaUrl: 'https://picsum.photos/400/600?random=lisa1',
+      mediaUrl: 'https://picsum.photos/id/1040/400/600', // Better art/creative scene
       mediaType: 'image',
       caption: 'Art gallery visit 🎨 (disappears after viewing!)',
       visibility: 'friends',
@@ -298,7 +298,7 @@ const mockFirestoreData = {
     'post_alex_2': {
       postId: 'post_alex_2',
       authorUid: 'user_alex',
-      mediaUrl: 'https://picsum.photos/400/600?random=alex2',
+      mediaUrl: 'https://picsum.photos/id/416/400/600', // Sports/basketball
       mediaType: 'image',
       caption: 'Amazing basketball game! Who else loves sports? 🏀',
       visibility: 'public', // ✅ Public post from non-friend
@@ -312,7 +312,7 @@ const mockFirestoreData = {
     'post_lisa_2': {
       postId: 'post_lisa_2',
       authorUid: 'user_lisa',
-      mediaUrl: 'https://picsum.photos/400/600?random=lisa2',
+      mediaUrl: 'https://picsum.photos/id/1084/400/600', // Better plants/greenery
       mediaType: 'image',
       caption: 'Plant collection update! 🌱 Green vibes only',
       visibility: 'public', // ✅ Public post from non-friend
@@ -326,7 +326,7 @@ const mockFirestoreData = {
     'post_david_1': {
       postId: 'post_david_1',
       authorUid: 'user_david',
-      mediaUrl: 'https://picsum.photos/400/600?random=david1',
+      mediaUrl: 'https://picsum.photos/id/1049/400/600', // Cycling/nature
       mediaType: 'image',
       caption: 'Mountain biking adventure! 🚴‍♂️ Nature therapy',
       visibility: 'friendsOfFriends', // ✅ FriendsOfFriends post from non-friend
@@ -340,7 +340,7 @@ const mockFirestoreData = {
     'post_sophie_1': {
       postId: 'post_sophie_1',
       authorUid: 'user_sophie',
-      mediaUrl: 'https://picsum.photos/400/600?random=sophie1',
+      mediaUrl: 'https://picsum.photos/id/1060/400/600', // Better food/dessert scene
       mediaType: 'image',
       caption: 'Baking masterpiece! 🍰 Who wants to try some?',
       visibility: 'public', // ✅ Public post from non-friend
@@ -354,7 +354,7 @@ const mockFirestoreData = {
     'post_chris_1': {
       postId: 'post_chris_1',
       authorUid: 'user_chris',
-      mediaUrl: 'https://picsum.photos/400/600?random=chris1',
+      mediaUrl: 'https://picsum.photos/id/453/400/600', // Music/instruments
       mediaType: 'image',
       caption: 'New song release! 🎸 Rock on! 🤘',
       visibility: 'friendsOfFriends', // ✅ FriendsOfFriends post from non-friend
@@ -368,7 +368,7 @@ const mockFirestoreData = {
     'post_gaming_1': {
       postId: 'post_gaming_1',
       authorUid: 'user_gaming',
-      mediaUrl: 'https://picsum.photos/400/600?random=gaming1',
+      mediaUrl: 'https://picsum.photos/id/0/400/600', // Tech/computer
       mediaType: 'image',
       caption: 'Epic gaming setup! 🎮 Who else is playing this weekend?',
       visibility: 'public', // ✅ Public post from non-friend
@@ -447,7 +447,7 @@ const mockFirestoreData = {
       chatId: 'chat_test_mike',
       senderUid: 'user_mike',
       text: 'Check out this disappearing photo!',
-      mediaUrl: 'https://picsum.photos/400/600?random=msg1',
+      mediaUrl: 'https://picsum.photos/id/1036/400/600', // Nature/scenic
       mediaType: 'image',
       createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
       expiresAt: new Date(Date.now() + 10 * 60 * 60 * 1000), // 10 hours from now

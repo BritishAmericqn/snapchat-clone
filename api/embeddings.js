@@ -70,64 +70,57 @@ export const generateCaptionSuggestions = async (imageUri, userId, options = {})
     // Create prompt for caption generation
     const prompt = createCaptionPrompt(options.style || 'casual');
     
-    // Call OpenAI Vision API with optimized settings
-    const response = await openai.chat.completions.create({
-      model: config.model,              // 🚀 Faster model
-      temperature: config.temperature,  // Optimized temperature
-      max_tokens: config.maxTokens,     // Fewer tokens = faster
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: prompt
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: imageData,
-                detail: config.imageDetail || 'low'  // 🚀 Low detail = 2-3x faster
+    // Call OpenAI Vision API with fallback handling
+    let response;
+    try {
+      response = await openai.chat.completions.create({
+        model: config.model,              // 🚀 Faster model
+        temperature: config.temperature,  // Optimized temperature
+        max_tokens: config.maxTokens,     // Fewer tokens = faster
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: prompt
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: imageData,
+                  detail: config.imageDetail || 'low'  // 🚀 Low detail = 2-3x faster
+                }
               }
+            ]
+          }
+        ],
+        // ✅ FIXED: Removed json_schema response_format - not supported by gpt-3.5-turbo
+        // Instead, add JSON example to prompt for guidance
+      });
+    } catch (visionError) {
+      console.warn('[Embeddings] Vision model failed for captions, attempting fallback:', visionError.message);
+      
+      // Try with text-only fallback using gpt-3.5-turbo
+      if (visionError.message.includes('Invalid content type') || visionError.message.includes('image_url') || visionError.message.includes('deprecated')) {
+        console.log('[Embeddings] Using text-only fallback for caption generation');
+        const fallbackConfig = getModelConfig('fast'); // Uses gpt-3.5-turbo
+        
+        response = await openai.chat.completions.create({
+          model: fallbackConfig.model,
+          temperature: 0.8,
+          max_tokens: 400,
+          messages: [
+            {
+              role: "user",
+              content: `Generate caption suggestions without image analysis. ${prompt.replace('Analyze this image and suggest', 'Suggest general')}`
             }
           ]
-        }
-      ],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "caption_suggestions",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              captions: {
-                type: "array",
-                items: {
-                  type: "string",
-                  description: "A creative caption suggestion for the image"
-                },
-                minItems: 3,
-                maxItems: 5
-              },
-              analysis: {
-                type: "string", 
-                description: "Brief analysis of the image content and mood"
-              },
-              tags: {
-                type: "array",
-                items: {
-                  type: "string"
-                },
-                description: "Relevant hashtags or keywords for the image"
-              }
-            },
-            required: ["captions", "analysis", "tags"],
-            additionalProperties: false
-          }
-        }
+        });
+      } else {
+        throw visionError; // Re-throw if it's a different error
       }
-    });
+    }
     
     // Track performance stats
     performanceStats.visionModelCalls++;
@@ -507,7 +500,12 @@ const createCaptionPrompt = (style = 'casual') => {
   - Add temporal tags (#sundayvibes, #goldenhour)
   - Consider current trends and seasons
 
-  Respond with valid JSON matching the specified schema.`;
+  Respond with valid JSON in this exact format:
+  {
+    "captions": ["Caption 1", "Caption 2", "Caption 3", "Caption 4"],
+    "analysis": "Brief analysis of the image content and mood",
+    "tags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"]
+  }`;
 };
 
 /**
@@ -600,110 +598,56 @@ export const generateTextOverlaySuggestions = async (imageUri, userId, options =
     // Create prompt for text overlay suggestions
     const prompt = createTextOverlayPrompt(options.style || 'mixed');
     
-    // Call OpenAI Vision API
-    const response = await openai.chat.completions.create({
-      model: config.model, // ✅ Uses optimized vision model instead of legacy config
-      temperature: 0.8, // Slightly lower for more focused suggestions
-      max_tokens: 400, // More tokens for positioning analysis
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: prompt
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: imageData,
-                detail: config.imageDetail
+    // Call OpenAI Vision API with fallback handling
+    let response;
+    try {
+      response = await openai.chat.completions.create({
+        model: config.model, // ✅ Uses optimized vision model instead of legacy config
+        temperature: 0.8, // Slightly lower for more focused suggestions
+        max_tokens: 400, // More tokens for positioning analysis
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: prompt
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: imageData,
+                  detail: config.imageDetail
+                }
               }
+            ]
+          }
+        ],
+        // ✅ FIXED: Removed json_schema response_format - not supported by gpt-3.5-turbo
+      });
+    } catch (visionError) {
+      console.warn('[Embeddings] Vision model failed, attempting fallback:', visionError.message);
+      
+      // Try with a text-only fallback using gpt-3.5-turbo
+      if (visionError.message.includes('Invalid content type') || visionError.message.includes('image_url') || visionError.message.includes('deprecated')) {
+        console.log('[Embeddings] Using text-only fallback for text overlay suggestions');
+        const fallbackConfig = getModelConfig('fast'); // Uses gpt-3.5-turbo
+        
+        response = await openai.chat.completions.create({
+          model: fallbackConfig.model,
+          temperature: 0.8,
+          max_tokens: 400,
+          messages: [
+            {
+              role: "user",
+              content: `Generate text overlay suggestions without image analysis. ${prompt.replace('Analyze this image and suggest', 'Suggest general')}`
             }
           ]
-        }
-      ],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "text_overlay_suggestions",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              suggestions: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    text: {
-                      type: "string",
-                      description: "The suggested text overlay"
-                    },
-                    style: {
-                      type: "string",
-                      enum: ["motivational", "aesthetic", "descriptive", "minimal"],
-                      description: "The style category of the text"
-                    },
-                    position: {
-                      type: "object",
-                      properties: {
-                        x: {
-                          type: "number",
-                          description: "X coordinate as percentage of image width (0-100)"
-                        },
-                        y: {
-                          type: "number",
-                          description: "Y coordinate as percentage of image height (0-100)"
-                        },
-                        reasoning: {
-                          type: "string",
-                          description: "Why this position was chosen"
-                        }
-                      },
-                      required: ["x", "y", "reasoning"],
-                      additionalProperties: false
-                    }
-                  },
-                  required: ["text", "style", "position"],
-                  additionalProperties: false
-                },
-                minItems: 3,
-                maxItems: 4
-              },
-              analysis: {
-                type: "string",
-                description: "Brief analysis of the image composition and optimal text zones"
-              },
-              composition: {
-                type: "object",
-                properties: {
-                  mood: {
-                    type: "string",
-                    description: "Overall mood of the image"
-                  },
-                  lighting: {
-                    type: "string",
-                    description: "Lighting conditions (golden hour, bright, dramatic, etc.)"
-                  },
-                  emptyZones: {
-                    type: "array",
-                    items: {
-                      type: "string"
-                    },
-                    description: "Areas of the image suitable for text overlay"
-                  }
-                },
-                required: ["mood", "lighting", "emptyZones"],
-                additionalProperties: false
-              }
-            },
-            required: ["suggestions", "analysis", "composition"],
-            additionalProperties: false
-          }
-        }
+        });
+      } else {
+        throw visionError; // Re-throw if it's a different error
       }
-    });
+    }
     
     // Parse response with markdown code block handling
     let responseContent = response.choices[0].message.content;
@@ -807,7 +751,28 @@ For positioning:
 - Ensure sufficient contrast for readability
 - Use percentage coordinates (0-100 for both x and y)
 
-Generate a mix of styles unless specifically requested. Provide detailed reasoning for positioning choices.`;
+Generate a mix of styles unless specifically requested. Provide detailed reasoning for positioning choices.
+
+Respond with valid JSON in this exact format:
+{
+  "suggestions": [
+    {
+      "text": "chase your dreams",
+      "style": "motivational",
+      "position": {
+        "x": 50,
+        "y": 30,
+        "reasoning": "Center-top placement for impact"
+      }
+    }
+  ],
+  "analysis": "Brief analysis of the image composition and optimal text zones",
+  "composition": {
+    "mood": "happy and energetic",
+    "lighting": "bright natural light",
+    "emptyZones": ["upper center", "lower right"]
+  }
+}`;
 
   const styleSpecificGuidance = {
     motivational: `Focus on MOTIVATIONAL text that inspires and uplifts. Think positive affirmations, life mantras, and empowering phrases.`,
@@ -819,7 +784,7 @@ Generate a mix of styles unless specifically requested. Provide detailed reasoni
 
   const guidance = styleSpecificGuidance[style] || styleSpecificGuidance.mixed;
   
-  return `${basePrompt}\n\nSTYLE FOCUS: ${guidance}\n\nRespond with valid JSON matching the specified schema.`;
+  return `${basePrompt}\n\nSTYLE FOCUS: ${guidance}`;
 };
 
 /**
@@ -2625,7 +2590,13 @@ Extract and analyze:
 
 Provide insights for matching with similar users. Focus on interests that would create meaningful connections.
 
-Respond with valid JSON:`;
+Respond with valid JSON in this exact format:
+{
+  "interests": ["gaming", "technology", "entertainment"],
+  "personality": ["friendly", "outgoing", "tech-savvy"],
+  "lifestyle": ["urban", "digital native", "social"],
+  "analysis": "Overall analysis for recommendation matching"
+}`;
     
     const response = await openai.chat.completions.create({
       model: RAG_CONFIG.openai.model,
@@ -2637,39 +2608,7 @@ Respond with valid JSON:`;
           content: prompt
         }
       ],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "user_analysis",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              interests: {
-                type: "array",
-                items: { type: "string" },
-                description: "Primary interests and hobbies"
-              },
-              personality: {
-                type: "array", 
-                items: { type: "string" },
-                description: "Key personality traits"
-              },
-              lifestyle: {
-                type: "array",
-                items: { type: "string" },
-                description: "Lifestyle indicators"
-              },
-              analysis: {
-                type: "string",
-                description: "Overall analysis for recommendation matching"
-              }
-            },
-            required: ["interests", "personality", "lifestyle", "analysis"],
-            additionalProperties: false
-          }
-        }
-      }
+      // ✅ FIXED: Removed json_schema response_format - not supported by gpt-3.5-turbo
     });
     
     // Parse response with comprehensive error handling
@@ -2776,7 +2715,17 @@ For each recommendation, provide:
 - Primary reason for recommendation
 - Potential conversation starter
 
-Respond with valid JSON:`;
+Respond with valid JSON in this exact format:
+{
+  "recommendations": [
+    {
+      "userId": "user_gaming",
+      "matchScore": 85,
+      "reason": "Shared interests in gaming and technology",
+      "conversationStarter": "Hey! I noticed we both love gaming 🎮"
+    }
+  ]
+}`;
     
     // 🚀 OPTIMIZATION: Use fast model for text-only recommendations
     const config = getModelConfig('recommendations');
@@ -2790,34 +2739,7 @@ Respond with valid JSON:`;
           content: prompt
         }
       ],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "user_recommendations",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              recommendations: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    userId: { type: "string" },
-                    matchScore: { type: "number" },
-                    reason: { type: "string" },
-                    conversationStarter: { type: "string" }
-                  },
-                  required: ["userId", "matchScore", "reason", "conversationStarter"],
-                  additionalProperties: false
-                }
-              }
-            },
-            required: ["recommendations"],
-            additionalProperties: false
-          }
-        }
-      }
+      // ✅ FIXED: Removed json_schema response_format - not supported by gpt-3.5-turbo
     });
     
     // Parse response with code block handling
@@ -2917,42 +2839,17 @@ Respond with valid JSON:`;
       messages: [
         {
           role: "user",
-          content: prompt
+          content: prompt + `
+
+{
+  "contentThemes": ["lifestyle", "social", "entertainment"],
+  "visualPreferences": ["bright", "candid", "artistic"],
+  "preferences": ["engaging content", "authentic moments"],
+  "analysis": "Analysis summary for story recommendations"
+}`
         }
-      ],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "story_preferences",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              contentThemes: {
-                type: "array",
-                items: { type: "string" },
-                description: "Preferred content themes"
-              },
-              visualPreferences: {
-                type: "array",
-                items: { type: "string" },
-                description: "Visual style preferences"
-              },
-              preferences: {
-                type: "array",
-                items: { type: "string" },
-                description: "Overall content preferences"
-              },
-              analysis: {
-                type: "string",
-                description: "Analysis summary for story recommendations"
-              }
-            },
-            required: ["contentThemes", "visualPreferences", "preferences", "analysis"],
-            additionalProperties: false
-          }
-        }
-      }
+      ]
+      // ✅ FIXED: Removed json_schema response_format - not supported by gpt-3.5-turbo
     });
     
     // Parse response with code block handling
@@ -3033,37 +2930,21 @@ Respond with valid JSON:`;
       messages: [
         {
           role: "user",
-          content: prompt
+          content: prompt + `
+
+{
+  "recommendations": [
+    {
+      "storyIndex": 0,
+      "engagementScore": 85,
+      "reason": "Why this story matches their preferences",
+      "discoveryValue": "What makes it discoverable/interesting"
+    }
+  ]
+}`
         }
-      ],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "story_recommendations",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              recommendations: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    storyIndex: { type: "number" },
-                    engagementScore: { type: "number" },
-                    reason: { type: "string" },
-                    discoveryValue: { type: "string" }
-                  },
-                  required: ["storyIndex", "engagementScore", "reason", "discoveryValue"],
-                  additionalProperties: false
-                }
-              }
-            },
-            required: ["recommendations"],
-            additionalProperties: false
-          }
-        }
-      }
+      ]
+      // ✅ FIXED: Removed json_schema response_format - not supported by gpt-3.5-turbo
     });
     
     // Parse response with code block handling
@@ -3408,30 +3289,55 @@ export const generateFilterRecommendations = async (imageUri, userId, options = 
     // Create filter recommendation prompt
     const prompt = createFilterRecommendationPrompt(options.availableFilters || [], options.includeReasoning);
     
-    // Call OpenAI Vision API with optimized settings
-    const response = await openai.chat.completions.create({
-      model: config.model,              // 🚀 Faster vision model
-      temperature: config.temperature,  // Optimized temperature
-      max_tokens: config.maxTokens,     // Fewer tokens for faster response
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text", 
-              text: prompt
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: imageData,
-                detail: config.imageDetail || 'low'  // 🚀 Low detail = 2-3x faster
+    // Call OpenAI Vision API with fallback handling
+    let response;
+    try {
+      response = await openai.chat.completions.create({
+        model: config.model,              // 🚀 Faster vision model
+        temperature: config.temperature,  // Optimized temperature
+        max_tokens: config.maxTokens,     // Fewer tokens for faster response
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text", 
+                text: prompt
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: imageData,
+                  detail: config.imageDetail || 'low'  // 🚀 Low detail = 2-3x faster
+                }
               }
+            ]
+          }
+        ]
+      });
+    } catch (visionError) {
+      console.warn('[Embeddings] Vision model failed for filter recommendations, attempting fallback:', visionError.message);
+      
+      // Try with text-only fallback using gpt-3.5-turbo
+      if (visionError.message.includes('Invalid content type') || visionError.message.includes('image_url') || visionError.message.includes('deprecated')) {
+        console.log('[Embeddings] Using text-only fallback for filter recommendations');
+        const fallbackConfig = getModelConfig('fast'); // Uses gpt-3.5-turbo
+        
+        response = await openai.chat.completions.create({
+          model: fallbackConfig.model,
+          temperature: 0.8,
+          max_tokens: 400,
+          messages: [
+            {
+              role: "user",
+              content: `Generate filter recommendations without image analysis. ${prompt.replace('Analyze this image and recommend', 'Recommend general')}`
             }
           ]
-        }
-      ]
-    });
+        });
+      } else {
+        throw visionError; // Re-throw if it's a different error
+      }
+    }
     
     // Track performance stats
     performanceStats.visionModelCalls++;

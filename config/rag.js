@@ -42,7 +42,7 @@ export const RAG_CONFIG = {
     
     // VISION: For image analysis only (captions, text overlays)  
     vision: {
-      model: 'gpt-4o-mini', // ✅ Updated from deprecated gpt-4-vision-preview
+      model: 'gpt-4o-mini', // ✅ Current vision model (not deprecated)
       temperature: 0.8,
       maxTokens: 400, // ⬆️ INCREASED: Prevent JSON truncation for filter recommendations
       imageDetail: 'low', // 2-3x faster than 'high' detail
@@ -100,6 +100,18 @@ export const RAG_CONFIG = {
 
 // OpenAI Client Initialization
 let openaiClient = null;
+
+// Clear cached client function - useful after config changes
+export const clearOpenAIClientCache = () => {
+  console.log('🔄 [RAG DEBUG] Clearing cached OpenAI client...');
+  openaiClient = null;
+  console.log('✅ [RAG DEBUG] Client cache cleared - next call will create fresh instance');
+};
+
+// Force clear all caches on module load to ensure fresh start
+console.log('🚀 [RAG STARTUP] Clearing all caches on module initialization...');
+openaiClient = null;
+console.log('✅ [RAG STARTUP] All caches cleared - fresh configuration loaded');
 
 export const getOpenAIClient = () => {
   // 🚨 EVEN MORE COMPREHENSIVE DEBUGGING
@@ -499,12 +511,20 @@ export { openaiClient };
 export const getModelConfig = (useCase) => {
   const { models } = RAG_CONFIG;
   
+  console.log(`🔍 [RAG CONFIG DEBUG] getModelConfig called with useCase: ${useCase}`);
+  console.log(`🔍 [RAG CONFIG DEBUG] Available models:`, Object.keys(models));
+  console.log(`🔍 [RAG CONFIG DEBUG] Vision model config:`, models.vision);
+  console.log(`🔍 [RAG CONFIG DEBUG] Vision model useCase includes '${useCase}':`, models.vision.useCase.includes(useCase));
+  
   // Determine which tier to use based on use case
   if (models.fast.useCase.includes(useCase)) {
+    console.log(`✅ [RAG CONFIG DEBUG] Using FAST model for ${useCase}:`, models.fast.model);
     return models.fast;
   } else if (models.vision.useCase.includes(useCase)) {
+    console.log(`✅ [RAG CONFIG DEBUG] Using VISION model for ${useCase}:`, models.vision.model);
     return models.vision;
   } else if (models.heavy.useCase.includes(useCase)) {
+    console.log(`✅ [RAG CONFIG DEBUG] Using HEAVY model for ${useCase}:`, models.heavy.model);
     return models.heavy;
   }
   
@@ -516,6 +536,11 @@ export const getModelConfig = (useCase) => {
 // Simple in-memory cache for AI responses (prevents repeated identical calls)
 const responseCache = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Clear response cache on startup to ensure fresh responses
+console.log('🧹 [RAG STARTUP] Clearing response cache...');
+responseCache.clear();
+console.log('✅ [RAG STARTUP] Response cache cleared - no stale cached responses');
 
 export const getCachedResponse = (cacheKey) => {
   const cached = responseCache.get(cacheKey);

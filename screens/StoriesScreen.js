@@ -141,12 +141,8 @@ export const StoriesScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Scrollable Content */}
-      <ScrollView 
-        style={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
-        bounces={true}
-      >
+      {/* Main Content - Fixed VirtualizedList nesting */}
+      <View style={styles.scrollContainer}>
         {/* Stories List */}
         <FlatList
           data={stories}
@@ -168,7 +164,7 @@ export const StoriesScreen = ({ navigation }) => {
             style={styles.discoverSection}
           />
         </View>
-      </ScrollView>
+      </View>
     </GradientBackground>
   );
 };

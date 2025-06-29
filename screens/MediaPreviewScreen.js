@@ -14,13 +14,15 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { AuthenticatedUserContext } from '../providers';
+import { AuthenticatedUserContext, useRAGNotification } from '../providers';
 import { Colors } from '../config';
 import { createPost, generateCaptionSuggestions } from '../api';
 import { TextOverlayTools, ImageComposer, VideoPlayer, TagSuggestionSection, FilterOverlay } from '../components';
+import { withRAGNotification, RAG_OPERATION_MESSAGES } from '../utils';
 
 export const MediaPreviewScreen = ({ navigation, route }) => {
   const { user } = useContext(AuthenticatedUserContext);
+  const notificationHandlers = useRAGNotification();
   const { media } = route.params;
   
   const [caption, setCaption] = useState('');
@@ -253,10 +255,18 @@ export const MediaPreviewScreen = ({ navigation, route }) => {
       setIsGeneratingCaptions(true);
       console.log('[MediaPreview] Generating captions for image:', media.uri);
       
-      const result = await generateCaptionSuggestions(
-        media.uri,
-        user.uid,
-        { style: selectedCaptionStyle }
+      // Wrap the caption generation with notification
+      const result = await withRAGNotification(
+        async () => {
+          return await generateCaptionSuggestions(
+            media.uri,
+            user.uid,
+            { style: selectedCaptionStyle }
+          );
+        },
+        notificationHandlers,
+        `caption_generation_${user.uid}_${Date.now()}`,
+        RAG_OPERATION_MESSAGES.CAPTION_GENERATION
       );
       
       console.log('[MediaPreview] 🎯 API RESPONSE COMPLETE:', JSON.stringify(result, null, 2));

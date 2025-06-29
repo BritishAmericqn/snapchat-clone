@@ -20,6 +20,7 @@ import { ConversationStarterChips } from './ConversationStarterChips';
 import { GradientBackground } from './GradientBackground';
 import { UserRecommendationSection } from './UserRecommendationSection';
 import { StoryDiscoverySection } from './StoryDiscoverySection';
+import { RAGNotification } from './RAGNotification';
 
 export {
   View,
@@ -44,4 +45,5 @@ export {
   GradientBackground,
   UserRecommendationSection,
   StoryDiscoverySection,
+  RAGNotification,
 };

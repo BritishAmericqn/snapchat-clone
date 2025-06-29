@@ -3,4 +3,14 @@ import {
   AuthenticatedUserProvider
 } from './AuthenticatedUserProvider';
 
-export { AuthenticatedUserContext, AuthenticatedUserProvider };
+import {
+  RAGNotificationProvider,
+  useRAGNotification
+} from './RAGNotificationProvider';
+
+export { 
+  AuthenticatedUserContext, 
+  AuthenticatedUserProvider,
+  RAGNotificationProvider,
+  useRAGNotification
+};

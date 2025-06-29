@@ -1,4 +1,4 @@
-import React, { useState, useRef, useContext } from 'react';
+import React, { useState, useRef, useContext, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -10,12 +10,15 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  PanResponder,
+  Animated,
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../config';
 import { generateTextOverlaySuggestions } from '../api';
-import { AuthenticatedUserContext } from '../providers';
+import { AuthenticatedUserContext, useRAGNotification } from '../providers';
+import { withRAGNotification, RAG_OPERATION_MESSAGES } from '../utils';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -100,6 +103,7 @@ export const TextOverlayTools = ({
   style 
 }) => {
   const { user } = useContext(AuthenticatedUserContext);
+  const notificationHandlers = useRAGNotification();
   const [textOverlays, setTextOverlays] = useState([]);
   const [showTextEditor, setShowTextEditor] = useState(false);
   const [editingTextId, setEditingTextId] = useState(null);
@@ -406,10 +410,18 @@ export const TextOverlayTools = ({
       setIsGeneratingAISuggestions(true);
       console.log('[TextOverlayTools] Generating AI text suggestions for image:', imageUri);
       
-      const result = await generateTextOverlaySuggestions(
-        imageUri,
-        user.uid,
-        { style: 'mixed' }
+      // Wrap the text overlay suggestions with notification
+      const result = await withRAGNotification(
+        async () => {
+          return await generateTextOverlaySuggestions(
+            imageUri,
+            user.uid,
+            { style: 'mixed' }
+          );
+        },
+        notificationHandlers,
+        `text_overlay_${user.uid}_${Date.now()}`,
+        RAG_OPERATION_MESSAGES.TEXT_OVERLAY
       );
       
       console.log('[TextOverlayTools] 🎯 AI Text Suggestions Response:', JSON.stringify(result, null, 2));

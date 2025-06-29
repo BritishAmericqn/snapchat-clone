@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import { List, Avatar, Button, Chip } from 'react-native-paper';
 import { AuthenticatedUserContext } from '../providers';
+import { useRAGNotification } from '../providers';
 import { Colors } from '../config';
 import { generateUserRecommendations } from '../api/embeddings';
 import { sendFriendRequest, checkFriendStatus } from '../api';
+import { withRAGNotification, RAG_OPERATION_MESSAGES } from '../utils';
 
 export const UserRecommendationSection = ({ 
   navigation, 
@@ -22,6 +24,7 @@ export const UserRecommendationSection = ({
   showHeader = true 
 }) => {
   const { user } = useContext(AuthenticatedUserContext);
+  const notificationHandlers = useRAGNotification();
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -66,10 +69,18 @@ export const UserRecommendationSection = ({
         clearRecommendationCache();
       }
       
-      const result = await generateUserRecommendations(user.uid, {
-        limit,
-        includeAnalysis: true
-      });
+      // Wrap the RAG operation with notification
+      const result = await withRAGNotification(
+        async () => {
+          return await generateUserRecommendations(user.uid, {
+            limit,
+            includeAnalysis: true
+          });
+        },
+        notificationHandlers,
+        `user_recommendations_${user.uid}_${Date.now()}`,
+        RAG_OPERATION_MESSAGES.USER_RECOMMENDATIONS
+      );
       
       console.log('[UserRecommendationSection] 📊 Result received:', {
         success: result.success,
@@ -174,13 +185,15 @@ export const UserRecommendationSection = ({
                 <Text style={styles.displayName} numberOfLines={1}>
                   {recommendedUser.displayName || recommendedUser.username}
                 </Text>
-                <Chip 
-                  style={[styles.matchChip, { backgroundColor: getMatchScoreColor(matchScore) }]}
-                  textStyle={styles.matchText}
-                  compact
-                >
-                  {matchScore}% match
-                </Chip>
+                <View style={styles.matchChipWrapper}>
+                  <View 
+                    style={[styles.matchChip, { backgroundColor: getMatchScoreColor(matchScore) }]}
+                  >
+                    <Text style={styles.matchText}>
+                      {matchScore}% match
+                    </Text>
+                  </View>
+                </View>
               </View>
               <Text style={styles.username} numberOfLines={1}>
                 @{recommendedUser.username}
@@ -408,8 +421,8 @@ const styles = StyleSheet.create({
   nameContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 4,
+    paddingRight: 4,
   },
   displayName: {
     fontSize: 16,
@@ -417,14 +430,34 @@ const styles = StyleSheet.create({
     color: Colors.black,
     flex: 1,
     marginRight: 8,
+    minWidth: 0,
+  },
+  matchChipWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 26,
+    flexShrink: 0,
   },
   matchChip: {
-    height: 24,
+    height: 26,
+    flexShrink: 0,
+    marginLeft: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 13,
+    alignSelf: 'center',
   },
   matchText: {
     color: Colors.white,
-    fontSize: 10,
-    fontWeight: 'bold',
+    fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 13,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    marginTop: 0,
+    marginBottom: 0,
   },
   username: {
     fontSize: 14,

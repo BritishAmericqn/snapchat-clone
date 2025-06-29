@@ -2,12 +2,14 @@ import React, { useState, useContext, useEffect } from "react";
 import { Text, StyleSheet, TouchableOpacity, Image, TextInput as RNTextInput, Alert, ScrollView } from "react-native";
 import { View, Button, FormErrorMessage } from "../components";
 import { Colors } from "../config";
-import { AuthenticatedUserContext } from "../providers";
+import { AuthenticatedUserContext, useRAGNotification } from "../providers";
 import { getUserProfile, updateUserProfile, getUsersByIds } from "../api";
 import { useFocusEffect } from "@react-navigation/native";
+import { withRAGNotification, RAG_OPERATION_MESSAGES } from "../utils";
 
 export const ProfileScreen = ({ navigation }) => {
   const { user } = useContext(AuthenticatedUserContext);
+  const notificationHandlers = useRAGNotification();
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
@@ -71,7 +73,15 @@ export const ProfileScreen = ({ navigation }) => {
       console.log('[ProfileScreen] 🔄 Saving profile updates:', updates);
       console.log('[ProfileScreen] 🔍 Bio being saved:', `"${bio.trim()}"`);
       
-      await updateUserProfile(user.uid, updates);
+      // Wrap the profile update with notification
+      await withRAGNotification(
+        async () => {
+          return await updateUserProfile(user.uid, updates);
+        },
+        notificationHandlers,
+        `profile_update_${user.uid}_${Date.now()}`,
+        RAG_OPERATION_MESSAGES.PROFILE_UPDATE
+      );
       
       console.log('[ProfileScreen] ✅ Profile update completed successfully');
       

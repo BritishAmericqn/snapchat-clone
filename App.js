@@ -3,15 +3,19 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider as PaperProvider } from "react-native-paper";
 
 import { RootNavigator } from "./navigation/RootNavigator";
-import { AuthenticatedUserProvider } from "./providers";
+import { AuthenticatedUserProvider, RAGNotificationProvider } from "./providers";
+import { RAGNotification } from "./components";
 
 const App = () => {
   return (
     <PaperProvider>
       <AuthenticatedUserProvider>
-        <SafeAreaProvider>
-          <RootNavigator />
-        </SafeAreaProvider>
+        <RAGNotificationProvider>
+          <SafeAreaProvider>
+            <RootNavigator />
+            <RAGNotification />
+          </SafeAreaProvider>
+        </RAGNotificationProvider>
       </AuthenticatedUserProvider>
     </PaperProvider>
   );

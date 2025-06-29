@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, ScrollView, ActivityIndicator } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../config';
 import { generateFilterRecommendations } from '../api/embeddings';
+import { AuthenticatedUserContext, useRAGNotification } from '../providers';
+import { withRAGNotification, RAG_OPERATION_MESSAGES } from '../utils';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -281,6 +283,8 @@ export const FilterOverlay = ({
   imageUri = null,
   userId = null
 }) => {
+  const { user } = useContext(AuthenticatedUserContext);
+  const notificationHandlers = useRAGNotification();
   const [availableFilters] = useState(Object.values(FILTERS));
   const [aiRecommendations, setAiRecommendations] = useState(null);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
@@ -314,10 +318,18 @@ export const FilterOverlay = ({
       
       console.log('[FilterOverlay] Generating AI filter recommendations...');
       
-      const result = await generateFilterRecommendations(imageUri, userId, {
-        availableFilters: Object.keys(FILTERS).filter(id => id !== 'none'),
-        includeReasoning: true
-      });
+      // Wrap the filter recommendations with notification
+      const result = await withRAGNotification(
+        async () => {
+          return await generateFilterRecommendations(imageUri, userId, {
+            availableFilters: Object.keys(FILTERS).filter(id => id !== 'none'),
+            includeReasoning: true
+          });
+        },
+        notificationHandlers,
+        `filter_recommendations_${userId}_${Date.now()}`,
+        RAG_OPERATION_MESSAGES.FILTER_RECOMMENDATIONS
+      );
       
       if (result.success && result.recommendations) {
         setAiRecommendations(result);

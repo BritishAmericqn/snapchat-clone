@@ -179,14 +179,7 @@ export const MainPagerScreen = ({ navigation }) => {
         {renderCurrentScreen()}
       </View>
       
-      {/* Development Build Ready Message with frosted glass */}
-      {__DEV__ && (
-        <View style={styles.devNote}>
-          <Text style={styles.devNoteText}>
-            💡 Swipe navigation will work in development build
-          </Text>
-        </View>
-      )}
+
     </GradientBackground>
   );
 };
@@ -303,32 +296,5 @@ const styles = StyleSheet.create({
   },
   screenContainer: {
     flex: 1,
-  },
-  devNote: {
-    position: 'absolute',
-    bottom: 50,
-    left: 20,
-    right: 20,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    elevation: 8,
-    shadowColor: 'rgba(0, 0, 0, 0.1)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    // Frosted glass effect
-    overflow: 'hidden',
-  },
-  devNoteText: {
-    color: Colors.white,
-    textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '600',
-    textShadowColor: Colors.black,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
 }); 
